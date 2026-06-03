@@ -17,7 +17,8 @@ together — the wallpaper and its settings files live in it.)
    https://www.rocksdanister.github.io/lively/
 2. Open Lively. Click the **＋ (Add Wallpaper)** tile.
 3. Choose **Browse**, then select the **`index.html`** file inside the
-   `wallpaper` folder. (Lively will pull in the whole folder.)
+   `wallpaper` folder. (Lively will pull in the whole folder and package it for
+   you.) — *don't* use "Create Wallpaper"; that's for building one from scratch.
 4. It appears in your library — **click it** to set it as your wallpaper. Done!
 5. To customise, click the little **⚙ / "wrench"** on the wallpaper thumbnail.
    You'll get sliders and dropdowns: **Colour theme, Flow speed, Aurora
@@ -25,6 +26,15 @@ together — the wallpaper and its settings files live in it.)
 
 > Tip: For the music-reactive mode, Lively listens to your system audio
 > automatically — just play something and watch the aurora breathe.
+
+> **Seeing "A LivelyInfo.json file was found… already packaged"?**
+> That comes from the **Create Wallpaper** screen, which won't open an
+> already-finished wallpaper. Two fixes — either one works:
+> 1. Go back and use **＋ Add Wallpaper → Browse** (step 2–3 above) instead, **or**
+> 2. If you grabbed an older copy of this folder, delete the file named
+>    **`LivelyInfo.json`** inside it, then import again. Current downloads no
+>    longer include that file, so this won't come up.
+
 
 ### Option B · Wallpaper Engine — if you own it on Steam
 1. In Wallpaper Engine, open **Wallpaper Editor** → **Create Wallpaper**.
