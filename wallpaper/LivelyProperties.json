@@ -1,33 +1,40 @@
 {
-  "theme": {
+  "scene": {
     "type": "dropdown",
-    "text": "Colour theme",
+    "text": "Scene",
+    "value": 1,
+    "items": ["Procedural Peaks", "Mountain Lake", "River Canyon", "Canyon Valley", "Waterfall", "Forest", "Seascape", "My Photo (photos/custom.jpg)", "Custom URL"]
+  },
+  "customUrl": {
+    "type": "textbox",
+    "text": "Custom image URL",
+    "value": ""
+  },
+  "weather": {
+    "type": "dropdown",
+    "text": "Weather",
+    "value": 1,
+    "items": ["None", "Snow", "Rain", "Storm + lightning", "Fog", "Sun rays", "Sparkle", "Fireflies", "Falling petals"]
+  },
+  "intensity": {
+    "type": "slider",
+    "text": "Weather intensity",
+    "value": 60, "min": 0, "max": 100, "step": 1
+  },
+  "timeOfDay": {
+    "type": "dropdown",
+    "text": "Time of day / mood",
     "value": 0,
-    "items": ["Auto (time of day)", "Aurora", "Sunset", "Ocean", "Nebula", "Mono"]
+    "items": ["Auto (real clock)", "Dawn", "Day", "Golden hour", "Dusk", "Night"]
   },
-  "speed": {
-    "type": "slider",
-    "text": "Flow speed",
-    "value": 50, "min": 0, "max": 100, "step": 1
-  },
-  "brightness": {
-    "type": "slider",
-    "text": "Aurora intensity",
-    "value": 70, "min": 0, "max": 100, "step": 1
-  },
-  "stars": {
+  "parallax": {
     "type": "checkbox",
-    "text": "Show starfield",
+    "text": "Mouse parallax",
     "value": true
   },
-  "audio": {
+  "grain": {
     "type": "checkbox",
-    "text": "React to music",
-    "value": true
-  },
-  "interactive": {
-    "type": "checkbox",
-    "text": "Mouse interaction",
+    "text": "Film grain",
     "value": true
   }
 }

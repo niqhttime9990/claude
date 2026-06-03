@@ -1,31 +1,62 @@
 {
-  "title": "Aurora Drift",
-  "description": "Ambient interactive aurora over a parallax starfield. Sky shifts with the time of day; reacts to mouse and music.",
+  "title": "Living Scenery",
+  "description": "An interactive scenic photo brought to life: cinematic drift + mouse parallax with layered weather (snow, rain, storms, fog, god rays, sparkle, fireflies, petals), time-of-day colour grading and film grain. Use built-in scenes or your own photo.",
   "type": "web",
   "file": "index.html",
   "preview": "preview.jpg",
-  "tags": ["Abstract", "Relaxing", "Nature"],
+  "tags": ["Nature", "Relaxing", "Abstract"],
   "visibility": "private",
   "general": {
     "properties": {
-      "theme": {
+      "scene": {
         "type": "combo",
-        "text": "Colour theme",
-        "value": "0",
+        "text": "Scene",
+        "value": "1",
         "options": [
-          { "label": "Auto (time of day)", "value": "0" },
-          { "label": "Aurora", "value": "1" },
-          { "label": "Sunset", "value": "2" },
-          { "label": "Ocean", "value": "3" },
-          { "label": "Nebula", "value": "4" },
-          { "label": "Mono", "value": "5" }
+          { "label": "Procedural Peaks", "value": "0" },
+          { "label": "Mountain Lake", "value": "1" },
+          { "label": "River Canyon", "value": "2" },
+          { "label": "Canyon Valley", "value": "3" },
+          { "label": "Waterfall", "value": "4" },
+          { "label": "Forest", "value": "5" },
+          { "label": "Seascape", "value": "6" },
+          { "label": "My Photo (photos/custom.jpg)", "value": "7" },
+          { "label": "Custom URL", "value": "8" }
         ]
       },
-      "speed":       { "type": "slider", "text": "Flow speed",       "value": 50, "min": 0, "max": 100, "fraction": false },
-      "brightness":  { "type": "slider", "text": "Aurora intensity", "value": 70, "min": 0, "max": 100, "fraction": false },
-      "stars":       { "type": "bool",   "text": "Show starfield",   "value": true },
-      "audio":       { "type": "bool",   "text": "React to music",   "value": true },
-      "interactive": { "type": "bool",   "text": "Mouse interaction","value": true }
+      "customUrl": { "type": "textinput", "text": "Custom image URL", "value": "" },
+      "weather": {
+        "type": "combo",
+        "text": "Weather",
+        "value": "1",
+        "options": [
+          { "label": "None", "value": "0" },
+          { "label": "Snow", "value": "1" },
+          { "label": "Rain", "value": "2" },
+          { "label": "Storm + lightning", "value": "3" },
+          { "label": "Fog", "value": "4" },
+          { "label": "Sun rays", "value": "5" },
+          { "label": "Sparkle", "value": "6" },
+          { "label": "Fireflies", "value": "7" },
+          { "label": "Falling petals", "value": "8" }
+        ]
+      },
+      "intensity": { "type": "slider", "text": "Weather intensity", "value": 60, "min": 0, "max": 100, "fraction": false },
+      "timeOfDay": {
+        "type": "combo",
+        "text": "Time of day / mood",
+        "value": "0",
+        "options": [
+          { "label": "Auto (real clock)", "value": "0" },
+          { "label": "Dawn", "value": "1" },
+          { "label": "Day", "value": "2" },
+          { "label": "Golden hour", "value": "3" },
+          { "label": "Dusk", "value": "4" },
+          { "label": "Night", "value": "5" }
+        ]
+      },
+      "parallax": { "type": "bool", "text": "Mouse parallax", "value": true },
+      "grain": { "type": "bool", "text": "Film grain", "value": true }
     }
   }
 }
