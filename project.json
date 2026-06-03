@@ -10,8 +10,8 @@
     "properties": {
       "image": { "type": "textinput", "text": "Your image URL (or put bg.jpg in this folder)", "value": "https://i.pinimg.com/736x/d6/6f/fc/d66ffcd7db47d11e20954592bfdaad25.jpg" },
       "fit": {
-        "type": "combo", "text": "Fit", "value": "1",
-        "options": [ { "label": "Fill screen (crop)", "value": "0" }, { "label": "Fit whole image (no crop)", "value": "1" } ]
+        "type": "combo", "text": "Fit", "value": "0",
+        "options": [ { "label": "Fill screen (recommended)", "value": "0" }, { "label": "Fit whole image (bars)", "value": "1" }, { "label": "Stretch to fill (no crop)", "value": "2" } ]
       },
       "weather": {
         "type": "combo", "text": "Weather", "value": "1",

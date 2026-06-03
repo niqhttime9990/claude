@@ -7,8 +7,8 @@
   "fit": {
     "type": "dropdown",
     "text": "Fit",
-    "value": 1,
-    "items": ["Fill screen (crop)", "Fit whole image (no crop)"]
+    "value": 0,
+    "items": ["Fill screen (recommended)", "Fit whole image (bars)", "Stretch to fill (no crop)"]
   },
   "weather": {
     "type": "dropdown",

@@ -48,7 +48,7 @@ const cfg = {
   intensity: 72,    // 0..100
   fog: 30,          // 0..100 drifting mist / blowing snow haze
   wind: 60,         // 0..100 (50 = calm)
-  fit: 1,           // 0 Fill (cover)  1 Fit whole image, never cropped (blurred fill)
+  fit: 0,           // 0 Fill(cover)  1 Fit(whole+blurred bars)  2 Stretch — image is 16:9 so Fill is exact
   parallax: true,
   drift: true,      // slow cinematic ken-burns
   vignette: 50,     // 0..100
@@ -68,8 +68,9 @@ const FALLBACK = 'linear-gradient(160deg,#10141f 0%,#0b0e16 45%,#050609 100%)';
 const bgblur = document.getElementById('bgblur');
 let hasImage = false;
 function applyFit(){
-  if(cfg.fit===1){ bg.style.backgroundSize='contain'; bgblur.style.display=hasImage?'block':'none'; }
-  else { bg.style.backgroundSize='cover'; bgblur.style.display='none'; }
+  if(cfg.fit===2){ bg.style.backgroundSize='100% 100%'; bgblur.style.display='none'; }      // stretch to fill
+  else if(cfg.fit===1){ bg.style.backgroundSize='contain'; bgblur.style.display=hasImage?'block':'none'; } // whole + blur
+  else { bg.style.backgroundSize='cover'; bgblur.style.display='none'; }                      // fill + crop
 }
 function applyImage(url){
   hasImage=!!url;
@@ -168,7 +169,7 @@ function applyProp(name,val){ switch(name){
   case 'intensity': cfg.intensity=+val; buildParticles(); break;
   case 'fog': cfg.fog=+val; buildParticles(); break;
   case 'wind': cfg.wind=+val; break;
-  case 'fit': cfg.fit=+val; setFit(); break;
+  case 'fit': cfg.fit=+val; applyFit(); break;
   case 'parallax': cfg.parallax=!!val; break;
   case 'drift': cfg.drift=!!val; break;
   case 'vignette': cfg.vignette=+val; vigEl.style.opacity=mix(0.15,1.0,cfg.vignette/100); break;
@@ -197,7 +198,10 @@ function frame(now){
   // photo drift + parallax
   const px=cfg.parallax?(mouse.x-0.5):0, py=cfg.parallax?(mouse.y-0.5):0;
   const kx=cfg.drift?Math.sin(t*0.05)*1.1:0, ky=cfg.drift?Math.cos(t*0.04)*0.8:0;
-  if(cfg.fit===1){
+  if(cfg.fit===2){
+    // stretch: fills the screen, nothing cropped (static full-bleed; motion comes from weather)
+    bg.style.transform='none';
+  } else if(cfg.fit===1){
     // whole image — never zoomed/cropped; only a gentle shift. Blurred backdrop stays lively.
     bg.style.transform=`translate(${(-px*1.2).toFixed(2)}%, ${(-py*0.9).toFixed(2)}%)`;
     const sb=1.2+(cfg.drift?Math.sin(t*0.03)*0.02:0);
