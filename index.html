@@ -13,14 +13,17 @@
     background-color: #05060a; transform: scale(1.10); will-change: transform;
     background-image: linear-gradient(160deg,#10141f 0%,#0b0e16 45%,#050609 100%);
   }
+  #bgblur { background-position: center; background-size: cover; background-repeat: no-repeat;
+    transform: scale(1.2); filter: blur(42px) brightness(.5) saturate(.9); display: none; will-change: transform; }
   #grade { mix-blend-mode: soft-light; opacity: 0; transition: opacity 1.2s, background 1.2s; }
   #vignette { background: radial-gradient(125% 115% at 50% 46%,
       rgba(0,0,0,0) 46%, rgba(0,0,0,.30) 80%, rgba(0,0,0,.60) 100%); }
   #grain { mix-blend-mode: overlay; opacity: .05; }
-  #bg{z-index:0}#grade{z-index:1}#fx{z-index:2}#vignette{z-index:3}#grain{z-index:4}
+  #bgblur{z-index:0}#bg{z-index:1}#grade{z-index:2}#fx{z-index:3}#vignette{z-index:4}#grain{z-index:5}
 </style>
 </head>
 <body>
+<div id="bgblur" class="layer"></div>
 <div id="bg" class="layer"></div>
 <div id="grade" class="layer"></div>
 <canvas id="fx" class="layer"></canvas>
@@ -45,7 +48,7 @@ const cfg = {
   intensity: 72,    // 0..100
   fog: 30,          // 0..100 drifting mist / blowing snow haze
   wind: 60,         // 0..100 (50 = calm)
-  fit: 0,           // 0 Fill (cover)  1 Fit whole image (contain)
+  fit: 1,           // 0 Fill (cover)  1 Fit whole image, never cropped (blurred fill)
   parallax: true,
   drift: true,      // slow cinematic ken-burns
   vignette: 50,     // 0..100
@@ -62,8 +65,18 @@ const ctx = fx.getContext('2d');
 
 /* ── Background image (CSS layer — local files OK in Lively) ─────────────── */
 const FALLBACK = 'linear-gradient(160deg,#10141f 0%,#0b0e16 45%,#050609 100%)';
+const bgblur = document.getElementById('bgblur');
 let hasImage = false;
-function setFit(){ bg.style.backgroundSize = (cfg.fit===1 ? 'contain' : 'cover') + (hasImage ? ', cover' : ''); }
+function applyFit(){
+  if(cfg.fit===1){ bg.style.backgroundSize='contain'; bgblur.style.display=hasImage?'block':'none'; }
+  else { bg.style.backgroundSize='cover'; bgblur.style.display='none'; }
+}
+function applyImage(url){
+  hasImage=!!url;
+  if(url){ bg.style.backgroundImage=`url("${url}")`; bgblur.style.backgroundImage=`url("${url}")`; }
+  else { bg.style.backgroundImage=FALLBACK; }
+  applyFit();
+}
 // For a Pinterest /NNNx/ thumbnail, try the full-res originals (then 1200x) first.
 function candidates(url){
   url=(url||'').trim(); if(!url) return [];
@@ -73,9 +86,9 @@ function candidates(url){
 }
 function loadImageChain(urls, i){
   i=i||0;
-  if(i>=urls.length){ bg.style.backgroundImage=FALLBACK; hasImage=false; setFit(); return; }
+  if(i>=urls.length){ applyImage(''); return; }
   const u=urls[i], img=new Image();
-  img.onload =()=>{ bg.style.backgroundImage=`url("${u}"), ${FALLBACK}`; hasImage=true; setFit(); };
+  img.onload =()=> applyImage(u);
   img.onerror=()=> loadImageChain(urls, i+1);
   img.src=u;
 }
@@ -184,8 +197,15 @@ function frame(now){
   // photo drift + parallax
   const px=cfg.parallax?(mouse.x-0.5):0, py=cfg.parallax?(mouse.y-0.5):0;
   const kx=cfg.drift?Math.sin(t*0.05)*1.1:0, ky=cfg.drift?Math.cos(t*0.04)*0.8:0;
-  const sc=cfg.drift?(1.10+Math.sin(t*0.03)*0.018):1.10;
-  bg.style.transform=`scale(${sc.toFixed(4)}) translate(${(-px*2.0+kx).toFixed(2)}%, ${(-py*1.4+ky).toFixed(2)}%)`;
+  if(cfg.fit===1){
+    // whole image — never zoomed/cropped; only a gentle shift. Blurred backdrop stays lively.
+    bg.style.transform=`translate(${(-px*1.2).toFixed(2)}%, ${(-py*0.9).toFixed(2)}%)`;
+    const sb=1.2+(cfg.drift?Math.sin(t*0.03)*0.02:0);
+    bgblur.style.transform=`scale(${sb.toFixed(4)}) translate(${(-px*1.6+kx).toFixed(2)}%, ${(-py*1.1+ky).toFixed(2)}%)`;
+  } else {
+    const sc=cfg.drift?(1.10+Math.sin(t*0.03)*0.018):1.10;
+    bg.style.transform=`scale(${sc.toFixed(4)}) translate(${(-px*2.0+kx).toFixed(2)}%, ${(-py*1.4+ky).toFixed(2)}%)`;
+  }
   if(cfg.grain>0) grainEl.style.backgroundPosition=`${Math.random()*100|0}px ${Math.random()*100|0}px`;
 
   ctx.clearRect(0,0,W,H);
