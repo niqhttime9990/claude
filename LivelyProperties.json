@@ -1,38 +1,48 @@
 {
-  "tint": {
+  "scene": {
     "type": "dropdown",
-    "text": "Tone",
+    "text": "Scene (built-in)",
     "value": 0,
-    "items": ["Moonlit", "Sepia engraving", "Ink (B&W)", "Night blue"]
+    "items": ["City lights", "Blue hour", "Amber", "Neon", "Forest"]
   },
-  "exposure": {
-    "type": "slider",
-    "text": "Brightness",
-    "value": 50, "min": 0, "max": 100, "step": 1
+  "image": {
+    "type": "textbox",
+    "text": "Your image URL (optional)",
+    "value": ""
   },
-  "density": {
-    "type": "slider",
-    "text": "Stipple density",
-    "value": 50, "min": 0, "max": 100, "step": 1
+  "rain": {
+    "type": "slider", "text": "Rain amount",
+    "value": 60, "min": 0, "max": 100, "step": 1
   },
-  "grain": {
-    "type": "slider",
-    "text": "Film grain",
+  "frost": {
+    "type": "slider", "text": "Fogged glass",
     "value": 55, "min": 0, "max": 100, "step": 1
   },
+  "zoom": {
+    "type": "slider", "text": "Background zoom",
+    "value": 18, "min": 0, "max": 100, "step": 1
+  },
+  "brightness": {
+    "type": "slider", "text": "Brightness",
+    "value": 52, "min": 0, "max": 100, "step": 1
+  },
+  "vignette": {
+    "type": "slider", "text": "Vignette",
+    "value": 60, "min": 0, "max": 100, "step": 1
+  },
+  "grain": {
+    "type": "slider", "text": "Film grain",
+    "value": 35, "min": 0, "max": 100, "step": 1
+  },
+  "tint": {
+    "type": "dropdown", "text": "Tone",
+    "value": 0,
+    "items": ["Natural", "Warm", "Mono", "Cool"]
+  },
   "parallax": {
-    "type": "checkbox",
-    "text": "Mouse parallax",
-    "value": true
+    "type": "checkbox", "text": "Mouse parallax", "value": true
   },
-  "lantern": {
-    "type": "checkbox",
-    "text": "Cursor lantern",
-    "value": true
-  },
-  "audio": {
-    "type": "checkbox",
-    "text": "React to music",
-    "value": true
+  "wipe": {
+    "type": "checkbox", "text": "Cursor wipes the fog", "value": true
   }
 }

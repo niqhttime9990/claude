@@ -1,6 +1,6 @@
 {
-  "title": "Nocturne",
-  "description": "An original procedural engraved moonlit night — starfield, glowing moon, a distant gothic spire and a lone figure on misty ground, hand-stippled like a Doré engraving. Your cursor is a lantern that reveals the etching. Calm, melancholic, alive.",
+  "title": "Petrichor — Rain on Glass",
+  "description": "A beautiful night seen through a wet, fogged-up window. Animated droplets refract the lights behind the glass and trails slide down; your cursor wipes the fog clear. Ships with dreamy bokeh city-light scenes, or use your own image URL.",
   "type": "web",
   "file": "index.html",
   "preview": "preview.jpg",
@@ -8,23 +8,34 @@
   "visibility": "private",
   "general": {
     "properties": {
-      "tint": {
-        "type": "combo",
-        "text": "Tone",
-        "value": "0",
+      "scene": {
+        "type": "combo", "text": "Scene (built-in)", "value": "0",
         "options": [
-          { "label": "Moonlit", "value": "0" },
-          { "label": "Sepia engraving", "value": "1" },
-          { "label": "Ink (B&W)", "value": "2" },
-          { "label": "Night blue", "value": "3" }
+          { "label": "City lights", "value": "0" },
+          { "label": "Blue hour", "value": "1" },
+          { "label": "Amber", "value": "2" },
+          { "label": "Neon", "value": "3" },
+          { "label": "Forest", "value": "4" }
         ]
       },
-      "exposure": { "type": "slider", "text": "Brightness",      "value": 50, "min": 0, "max": 100, "fraction": false },
-      "density":  { "type": "slider", "text": "Stipple density", "value": 50, "min": 0, "max": 100, "fraction": false },
-      "grain":    { "type": "slider", "text": "Film grain",      "value": 55, "min": 0, "max": 100, "fraction": false },
-      "parallax": { "type": "bool", "text": "Mouse parallax",  "value": true },
-      "lantern":  { "type": "bool", "text": "Cursor lantern",  "value": true },
-      "audio":    { "type": "bool", "text": "React to music",  "value": true }
+      "image":      { "type": "textinput", "text": "Your image URL (optional)", "value": "" },
+      "rain":       { "type": "slider", "text": "Rain amount",     "value": 60, "min": 0, "max": 100, "fraction": false },
+      "frost":      { "type": "slider", "text": "Fogged glass",    "value": 55, "min": 0, "max": 100, "fraction": false },
+      "zoom":       { "type": "slider", "text": "Background zoom",  "value": 18, "min": 0, "max": 100, "fraction": false },
+      "brightness": { "type": "slider", "text": "Brightness",      "value": 52, "min": 0, "max": 100, "fraction": false },
+      "vignette":   { "type": "slider", "text": "Vignette",        "value": 60, "min": 0, "max": 100, "fraction": false },
+      "grain":      { "type": "slider", "text": "Film grain",      "value": 35, "min": 0, "max": 100, "fraction": false },
+      "tint": {
+        "type": "combo", "text": "Tone", "value": "0",
+        "options": [
+          { "label": "Natural", "value": "0" },
+          { "label": "Warm", "value": "1" },
+          { "label": "Mono", "value": "2" },
+          { "label": "Cool", "value": "3" }
+        ]
+      },
+      "parallax": { "type": "bool", "text": "Mouse parallax",        "value": true },
+      "wipe":     { "type": "bool", "text": "Cursor wipes the fog",  "value": true }
     }
   }
 }

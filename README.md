@@ -1,12 +1,13 @@
-# Nocturne 🌙
+# Petrichor — Rain on Glass 🌧️
 
-An original, procedural **engraved moonlit night** — a live wallpaper for the
-dark, melancholic, Doré / Dark-Souls aesthetic. A vast starfield, a glowing
-moon, a distant gothic spire and a lone hooded figure on misty, moonlit ground,
-all rendered as a hand-stippled engraving. Drifting stars, the odd shooting
-star, slow fog. Your cursor is a **lantern** that reveals the etching around it.
+A beautiful night seen through a wet, fogged-up window. Animated raindrops bead
+and refract the lights behind the glass, trails slide down, the pane is softly
+frosted — and **your cursor wipes the fog clear**, like a hand on a misted
+window. Calm, moody, cinematic.
 
-Not a copy of anything — it's a single hand-written WebGL shader.
+Built for a dark, atmospheric, rainy-night aesthetic. It ships with dreamy
+**bokeh city-light** scenes so it looks great instantly, and you can point it at
+your own image.
 
 ## 👉 The wallpaper is **`index.html`**
 
@@ -21,11 +22,10 @@ Not a copy of anything — it's a single hand-written WebGL shader.
 
 ## Try it instantly
 
-Open `index.html` in any browser (needs WebGL, on by default), or view it live:
+Open `index.html` in any browser (needs WebGL2, on by default), or view it live:
 https://htmlpreview.github.io/?https://github.com/niqhttime9990/claude/blob/main/index.html
 
-Move your mouse — the lantern reveals the world, and the scene drifts with
-parallax.
+Move your mouse to wipe the fog.
 
 ## Set it as your Windows wallpaper (Lively — free)
 
@@ -34,17 +34,28 @@ parallax.
 3. In Lively: **＋ Add Wallpaper → Browse → pick `index.html` → click it to apply.**
 4. Click the **⚙ / wrench** on the thumbnail for settings.
 
+## Using your own image
+
+The built-in scenes (City lights, Blue hour, Amber, Neon, Forest) need no
+internet. To use your own picture, paste a **direct image URL** into the
+**"Your image URL"** box in settings — that's the most reliable way, because
+desktop wallpaper hosts block loading local files into the graphics layer for
+security. (Tip: any dark, moody night photo with lights looks incredible behind
+the rain.)
+
 ## Settings
 
 | Setting | What it does |
 |---|---|
-| **Tone** | Moonlit · Sepia engraving · Ink (B&W) · Night blue |
-| **Brightness** | Overall exposure |
-| **Stipple density** | How dense the engraved dots are |
-| **Film grain** | Subtle paper-grain texture |
-| **Mouse parallax** | Scene shifts with the cursor for depth |
-| **Cursor lantern** | A light that reveals the etching as you move |
-| **React to music** | The moon breathes with system audio |
+| **Scene** | Built-in bokeh palettes: City lights · Blue hour · Amber · Neon · Forest |
+| **Your image URL** | Use any web image instead of a built-in scene |
+| **Rain amount** | How much rain runs down the glass |
+| **Fogged glass** | How frosted/misted the window is |
+| **Background zoom** | Push the lights in/out of focus |
+| **Brightness / Vignette / Film grain** | Mood and grade |
+| **Tone** | Natural · Warm · Mono · Cool |
+| **Mouse parallax** | Scene drifts with the cursor |
+| **Cursor wipes the fog** | Clear the mist where your cursor moves |
 
-Single WebGL fragment shader, zero dependencies. Frame-rate capped and pauses
-when the desktop is hidden. MIT.
+Single WebGL2 shader, zero dependencies. Rain-on-glass technique after
+BigWIngs' "Heartfelt" (Shadertoy). Frame-rate capped, pauses when hidden. MIT.

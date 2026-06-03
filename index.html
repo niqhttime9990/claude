@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Nocturne — an engraved moonlit wallpaper</title>
+<title>Petrichor — rain on glass</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #03040a; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #05070d; }
   canvas { display: block; width: 100vw; height: 100vh; }
   #err { position: fixed; inset: 0; display: none; place-items: center; color: #9aa4c8;
     font: 15px/1.6 ui-sans-serif, system-ui, sans-serif; text-align: center; padding: 24px; }
@@ -13,235 +13,262 @@
 </head>
 <body>
 <canvas id="c"></canvas>
-<div id="err">This wallpaper needs WebGL.<br>Enable hardware acceleration and reload.</div>
+<div id="err">This wallpaper needs WebGL2.<br>Enable hardware acceleration and reload.</div>
 <script>
 "use strict";
 /* ──────────────────────────────────────────────────────────────────────────
-   NOCTURNE  ·  an engraved moonlit live wallpaper
+   PETRICHOR  ·  rain on glass
    ----------------------------------------------------------------------------
-   An original procedural night scene — vast starfield, a glowing moon, a
-   distant gothic spire and a lone figure on misty ground — rendered in a
-   hand-engraved stipple style (à la Doré). Your cursor is a lantern that
-   reveals the etching around it. Calm, melancholic, alive.
-   Single WebGL fragment shader. Zero dependencies. MIT.
+   A beautiful night image seen through a wet, fogged-up window. Animated
+   droplets refract and sharpen the lights behind the glass; trails slide down;
+   the whole pane is softly frosted — and your cursor wipes it clear like a hand
+   on a misted window. Ships with a dreamy bokeh "city lights" scene; drop in any
+   image you like (bg.jpg or a URL) for your own.
+   Rain-on-glass technique after BigWIngs' "Heartfelt" (Shadertoy). WebGL2. MIT.
    ────────────────────────────────────────────────────────────────────────── */
 
 const canvas = document.getElementById('c');
-const gl = canvas.getContext('webgl', { alpha: false, antialias: false, depth: false })
-        || canvas.getContext('experimental-webgl');
-if (!gl) { document.getElementById('err').style.display = 'grid'; throw new Error('no webgl'); }
+const gl = canvas.getContext('webgl2', { alpha:false, antialias:false, depth:false });
+if (!gl) { document.getElementById('err').style.display='grid'; throw new Error('no webgl2'); }
 
-/* ── Live-editable settings (Lively / Wallpaper Engine) ─────────────────── */
+/* ── Settings (live-editable via Lively / Wallpaper Engine) ─────────────── */
 const cfg = {
-  tint: 0,        // 0 moonlit  1 sepia  2 mono  3 night-blue
-  grain: 55,      // 0..100 film grain
-  exposure: 50,   // 0..100 brightness
-  density: 50,    // 0..100 stipple density
+  scene: 0,       // built-in bokeh scene (used when no image URL set)
+  image: '',      // optional image URL; overrides the scene when it loads
+  rain: 60,       // 0..100 rain amount
+  frost: 55,      // 0..100 how fogged the glass is
+  zoom: 18,       // 0..100 background zoom
+  brightness: 52, // 0..100
+  vignette: 60,   // 0..100
+  grain: 35,      // 0..100
+  tint: 0,        // 0 natural 1 warm 2 mono 3 cool
   parallax: true,
-  lantern: true,
-  audio: true,
+  wipe: true,     // cursor wipes the fog
 };
 
-const VERT = `attribute vec2 aPosition; varying vec2 vUv;
-  void main(){ vUv = aPosition*0.5+0.5; gl_Position = vec4(aPosition,0.0,1.0); }`;
+/* ── Shaders (GLSL ES 3.00) ─────────────────────────────────────────────── */
+const VS = `#version 300 es
+in vec2 aPosition; out vec2 vUv;
+void main(){ vUv = aPosition*0.5+0.5; gl_Position = vec4(aPosition,0.0,1.0); }`;
 
-const FRAG = `
+const FS = `#version 300 es
 precision highp float;
-varying vec2 vUv;
-uniform vec2  uRes;
-uniform float uTime;
-uniform vec2  uMouse;
-uniform float uLantern;   // eased cursor-light strength
-uniform float uFlash;     // click flash
-uniform float uParallax;
-uniform float uGrain;
-uniform float uExposure;
-uniform float uDensity;
-uniform int   uTint;
-uniform float uAudio;
+in vec2 vUv; out vec4 frag;
+uniform sampler2D uTex;
+uniform vec2 uRes, uImgRes, uMouse;
+uniform float uTime, uRain, uFrost, uZoom, uBright, uVig, uGrain, uParallax, uWipe;
+uniform int uTint;
 
-float aspect;
-
-float hash21(vec2 p){ p = fract(p*vec2(123.34,345.45)); p += dot(p, p+34.345); return fract(p.x*p.y); }
-float n2(vec2 p){
-  vec2 i=floor(p), f=fract(p);
-  float a=hash21(i), b=hash21(i+vec2(1.,0.)), c=hash21(i+vec2(0.,1.)), d=hash21(i+vec2(1.,1.));
-  vec2 u=f*f*(3.-2.*f);
-  return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
+float N(float t){ return fract(sin(t*12345.564)*7658.76); }
+float Saw(float b, float t){ return smoothstep(0.,b,t)*smoothstep(1.,b,t); }
+vec3 N13(float p){
+  vec3 p3=fract(vec3(p)*vec3(.1031,.11369,.13787));
+  p3+=dot(p3,p3.yzx+19.19);
+  return fract(vec3((p3.x+p3.y)*p3.z,(p3.x+p3.z)*p3.y,(p3.y+p3.z)*p3.x));
 }
-float fbm(vec2 p){ float v=0.,a=.5; for(int i=0;i<6;i++){ v+=a*n2(p); p=p*1.92+vec2(1.3,-2.1); a*=.5; } return v; }
-float ign(vec2 c){ return fract(52.9829189*fract(dot(c, vec2(0.06711056,0.00583715)))); } // dither
+vec2 DropLayer2(vec2 uv, float t){
+  vec2 UV=uv; uv.y+=t*0.75;
+  vec2 a=vec2(6.,1.), grid=a*2.;
+  vec2 id=floor(uv*grid);
+  float colShift=N(id.x); uv.y+=colShift;
+  id=floor(uv*grid);
+  vec3 n=N13(id.x*35.2+id.y*2376.1);
+  vec2 st=fract(uv*grid)-vec2(.5,0.);
+  float x=n.x-.5;
+  float y=UV.y*20.;
+  float wiggle=sin(y+sin(y));
+  x+=wiggle*(.5-abs(x))*(n.z-.5); x*=.7;
+  float ti=fract(t+n.z);
+  y=(Saw(.85,ti)-.5)*.9+.5;
+  vec2 p=vec2(x,y);
+  float d=length((st-p)*a.yx);
+  float mainDrop=smoothstep(.4,.0,d);
+  float r=sqrt(smoothstep(1.,y,st.y));
+  float cd=abs(st.x-x);
+  float trail=smoothstep(.23*r,.15*r*r,cd);
+  float trailFront=smoothstep(-.02,.02,st.y-y);
+  trail*=trailFront*r*r;
+  y=UV.y; float trail2=smoothstep(.2*r,.0,cd);
+  float droplets=max(0.,(sin(y*(1.-y)*120.)-st.y))*trail2*trailFront*n.z;
+  y=fract(y*10.)+(st.y-.5);
+  float dd=length(st-vec2(x,y));
+  droplets=smoothstep(.3,0.,dd);
+  float m=mainDrop+droplets*r*trailFront;
+  return vec2(m, trail);
+}
+float StaticDrops(vec2 uv, float t){
+  uv*=40.;
+  vec2 id=floor(uv); uv=fract(uv)-.5;
+  vec3 n=N13(id.x*107.45+id.y*3543.654);
+  vec2 p=(n.xy-.5)*.7;
+  float d=length(uv-p);
+  float fade=Saw(.025,fract(t+n.z));
+  return smoothstep(.3,0.,d)*fract(n.z*10.)*fade;
+}
+vec2 Drops(vec2 uv, float t, float l0, float l1, float l2){
+  float s=StaticDrops(uv,t)*l0;
+  vec2 m1=DropLayer2(uv,t)*l1;
+  vec2 m2=DropLayer2(uv*1.85,t)*l2;
+  float c=s+m1.x+m2.x;
+  c=smoothstep(.3,1.,c);
+  return vec2(c, max(m1.y*l0, m2.y*l1));
+}
 
 void main(){
-  aspect = uRes.x/uRes.y;
-  vec2 uv = vUv;
-  float horizon = 0.36;
+  vec2 fc = vUv*uRes;
+  float aspect = uRes.x/uRes.y;
+  vec2 uv = (fc-0.5*uRes)/uRes.y;
+  uv *= 0.7;
+  float t = uTime*0.2;
 
-  vec2 par = (uMouse-0.5)*uParallax;
-  vec2 suv = uv + par*vec2(0.018,0.012);
-  vec2 guv = uv + par*vec2(0.055,0.006);
+  float rain = uRain;
+  float l0 = smoothstep(-.5,1.,rain)*2.0;
+  float l1 = smoothstep(.25,.75,rain);
+  float l2 = smoothstep(.0,.5,rain);
 
-  // sky — near black, only faintly lifted toward the horizon
-  float L = mix(0.003, 0.045, smoothstep(1.0, horizon, suv.y));
+  vec2 c = Drops(uv, t, l0, l1, l2);
+  vec2 e = vec2(.0015, 0.);
+  float cx = Drops(uv+e,    t, l0, l1, l2).x;
+  float cy = Drops(uv+e.yx, t, l0, l1, l2).x;
+  vec2 n = vec2(cx-c.x, cy-c.x);
 
-  // moon + tight halo
-  vec2 mp = vec2(0.72, 0.78);
-  vec2 dM = (suv-mp); dM.x*=aspect;
-  float md = length(dM);
-  float moonGlow = pow(smoothstep(0.22,0.0,md), 2.8)*0.36*(0.85+0.3*uAudio);
-  float moonCore = smoothstep(0.044,0.040,md);
-  L += moonGlow + smoothstep(0.054,0.046,md)*0.10;
+  // background cover-fit uv
+  float cover = max(uRes.x/uImgRes.x, uRes.y/uImgRes.y);
+  vec2 size = uImgRes*cover;
+  vec2 buv = (fc-(uRes-size)*0.5)/size;
+  vec2 par = (uMouse-0.5)*uParallax*0.02;
+  buv = (buv-0.5)/(1.0+uZoom*0.6) + 0.5 + par + vec2(sin(uTime*0.03)*0.004, 0.0);
+  buv.y = 1.0 - buv.y;
 
-  // stars (sky only, crisp)
-  {
-    vec2 sp = suv*vec2(aspect,1.0)*150.0;
-    vec2 ip=floor(sp), fp=fract(sp);
-    float h=hash21(ip);
-    float present = step(0.972, h);
-    vec2 cc = vec2(hash21(ip+3.1), hash21(ip+7.7));
-    float d = length(fp-cc);
-    float star = present*smoothstep(0.16,0.0,d);
-    float tw = 0.55+0.45*sin(uTime*1.5 + h*60.0);
-    L += star*(0.8+0.7*tw)*smoothstep(horizon-0.02, horizon+0.16, suv.y);
-  }
+  // fog: how frosted the glass is here (cleared by drops/trails and the cursor)
+  vec2 dm = vUv-uMouse; dm.x*=aspect;
+  float wipe = smoothstep(0.17,0.0,length(dm))*uWipe;
+  float clearAmt = clamp(c.x + c.y*0.7, 0.0, 1.0);
+  float fog = (1.0-clearAmt)*(1.0-wipe)*uFrost;
 
-  // shooting star (rare)
-  {
-    float period = 11.0; float ph = floor(uTime/period);
-    float tt = fract(uTime/period)*period;
-    vec2 a = vec2(hash21(vec2(ph,1.0))*0.5+0.15, 0.96);
-    vec2 dir = normalize(vec2(0.8, -0.42));
-    vec2 pos = a + dir*tt*0.18;
-    vec2 dd = (suv-pos); dd.x*=aspect;
-    float along = dot(dd, -dir);
-    float perp  = abs(dot(dd, vec2(-dir.y, dir.x)));
-    float trail = step(0.0, along)*step(along, 0.06)*(1.0-along/0.06);
-    float meteor = trail*smoothstep(0.0022,0.0, perp)*step(tt,1.0)*step(suv.y,0.95);
-    L += meteor*0.9;
-  }
+  float maxBlur = mix(2.5, 6.0, uFrost);
+  float lod = mix(0.0, maxBlur, fog);
+  vec3 col = textureLod(uTex, buv + n*1.1, lod).rgb;
 
-  // distant gothic spire (lit stone against the sky)
-  {
-    float sx = 0.30 + par.x*0.008;
-    float gB = horizon-0.01, gT = 0.80;
-    float t = smoothstep(gB, gT, suv.y);
-    float w = mix(0.050, 0.0, pow(t,0.5));               // narrow, sharp pinnacle
-    w *= 0.80 + 0.20*sin((suv.x-sx)*120.0);              // fine vertical ridges
-    w *= 1.0 - 0.45*smoothstep(0.45,0.5, fract(t*3.0));  // stepped tiers (cathedral)
-    float dx = abs(suv.x-sx);
-    float inR = step(gB,suv.y)*step(suv.y,gT);
-    float str = fbm(vec2((suv.x-sx)*100.0, suv.y*52.0));
-    float body = smoothstep(w, w-0.0022, dx)*inR*smoothstep(0.26,0.60, str*0.55+0.52);
-    float rim = smoothstep(w, 0.0, (suv.x-sx))*0.12;     // moon-facing edge brighter
-    float lit = 0.12 + 0.26*str + rim;
-    L = mix(L, lit, body);
-  }
+  // frosted whitening + condensation
+  vec3 fogTint = uTint==1 ? vec3(0.86,0.80,0.72) : vec3(0.74,0.80,0.92);
+  col = mix(col, fogTint*0.45, fog*0.45);
+  col += c.x*0.05;                       // tiny droplet highlight
 
-  // ground — reads as lit, undulating terrain (texture concentrated here)
-  float crest = horizon + (fbm(vec2(guv.x*1.8+20.0, 5.0))-0.5)*0.045;
-  float gmask = smoothstep(0.004,-0.004, guv.y-crest);
-  float macro = fbm(vec2(guv.x*3.0, guv.y*4.0+2.0));
-  float micro = fbm(vec2(guv.x*aspect, guv.y)*vec2(30.0,42.0));
-  float gdist = smoothstep(horizon, 0.02, guv.y);          // 1 near viewer
-  float lightSide = 0.7 + 0.45*smoothstep(0.0,1.0,guv.x);  // brighter toward the moon
-  float gLight = (mix(0.10,0.42,gdist) + (micro-0.5)*mix(0.06,0.20,gdist) + (macro-0.5)*0.11) * lightSide;
-  L = mix(L, max(gLight,0.04), gmask);
+  // grade
+  col *= mix(0.65, 1.35, uBright);
+  if (uTint==1) col *= vec3(1.08,1.0,0.86);
+  else if (uTint==2){ float g=dot(col,vec3(.299,.587,.114)); col=vec3(g); }
+  else if (uTint==3) col *= vec3(0.82,0.88,1.08);
 
-  // low fog band hugging the horizon
-  float fog = smoothstep(horizon+0.12, horizon, guv.y) * smoothstep(horizon-0.10, horizon+0.02, guv.y);
-  fog *= 0.55 + 0.45*fbm(vec2(guv.x*3.0 - uTime*0.04, 4.0 + uTime*0.04));
-  L = mix(L, max(L, 0.085), clamp(fog,0.0,1.0)*0.7);
-
-  // lone hooded figure (foreground silhouette on the lit ground)
-  {
-    vec2 c = vec2(0.5, horizon-0.035);
-    vec2 d = (guv-c); d.x*=aspect;
-    float halfW = 0.012 + max(0.0,(c.y-guv.y))*0.30;       // cloak flares to the ground
-    float top = c.y+0.045, bot = c.y-0.075;
-    float within = smoothstep(bot-0.008,bot+0.005,guv.y)*smoothstep(top+0.010,top-0.018,guv.y);
-    float cloak = smoothstep(halfW+0.004, halfW-0.003, abs(d.x)) * within;
-    float head  = smoothstep(0.001,0.0, length((guv-(c+vec2(0.0,0.052)))*vec2(aspect,1.0))-0.016);
-    float fig = clamp(cloak+head, 0.0, 1.0);
-    L += smoothstep(0.13,0.0, length((guv-c)*vec2(aspect,1.0)))*0.022; // faint ground halo
-    L = mix(L, 0.006, fig);
-  }
-
-  // cursor lantern reveal
-  {
-    vec2 d=(uv-uMouse); d.x*=aspect;
-    L += pow(smoothstep(0.32,0.0,length(d)),2.0)*uLantern*0.5;
-  }
-
-  // click flash (distant lightning, over the sky)
-  L += uFlash*0.20*smoothstep(0.0, horizon+0.2, uv.y);
-
-  // exposure + vignette
-  L *= mix(0.8, 1.3, uExposure);
-  vec2 q=uv-0.5; q.x*=aspect;
-  L *= mix(0.4, 1.0, smoothstep(1.15, 0.18, length(q)));
-  L = clamp(L, 0.0, 1.3);
-
-  // engraving / stipple stylise — dark stays clean black, lit areas stipple
-  float px = 1.6;
-  vec2 fc = floor(gl_FragCoord.xy/px);
-  float thr = mix(ign(fc), hash21(fc), 0.45);
-  float stip = step(thr, L*mix(0.85,1.25,uDensity));
-  float core = smoothstep(0.60, 0.95, L);                 // bright light sources stay solid
-  float vis = max(max(stip, core), moonCore);
-
-  vec3 ink = uTint==1 ? vec3(1.0,0.90,0.74)
-           : uTint==2 ? vec3(1.0)
-           : uTint==3 ? vec3(0.70,0.81,1.0)
-                      : vec3(0.85,0.90,1.0);
-  vec3 col = ink*vis;
-  col *= 1.0 - (hash21(gl_FragCoord.xy + fract(uTime)*vec2(13.1,7.7)))*uGrain*0.08; // subtle grain
-  col += vec3(0.006,0.008,0.013); // faint cool base so black isn't dead
-  gl_FragColor = vec4(col, 1.0);
+  vec2 q = vUv-0.5; q.x*=aspect;
+  col *= mix(1.0, smoothstep(1.15,0.25,length(q)), uVig);
+  col *= 1.0 - N13(vUv.x*1234.5 + vUv.y*678.9 + fract(uTime)*51.7).x*uGrain*0.09;
+  col = max(col, 0.0);
+  frag = vec4(col, 1.0);
 }`;
 
-/* ── Compile ────────────────────────────────────────────────────────────── */
+/* ── Compile / link ─────────────────────────────────────────────────────── */
 function sh(type, src){ const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s);
   if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(s)); return s; }
 const prog = gl.createProgram();
-gl.attachShader(prog, sh(gl.VERTEX_SHADER, VERT));
-gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FRAG));
+gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS));
+gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
 gl.bindAttribLocation(prog, 0, 'aPosition');
 gl.linkProgram(prog);
 if(!gl.getProgramParameter(prog, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(prog));
 gl.useProgram(prog);
-const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+const vbo=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,vbo);
 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
 gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
-const U = {}; ['uRes','uTime','uMouse','uLantern','uFlash','uParallax','uGrain','uExposure','uDensity','uTint','uAudio']
-  .forEach(n => U[n] = gl.getUniformLocation(prog, n));
+const U={}; ['uTex','uRes','uImgRes','uMouse','uTime','uRain','uFrost','uZoom','uBright','uVig','uGrain','uParallax','uWipe','uTint']
+  .forEach(k=>U[k]=gl.getUniformLocation(prog,k));
 
-/* ── State ──────────────────────────────────────────────────────────────── */
+/* ── Background texture (built-in bokeh scene, or user image) ───────────── */
+const tex = gl.createTexture();
+let imgW=1280, imgH=720;
+function setTexture(source, w, h){
+  imgW=w; imgH=h;
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.generateMipmap(gl.TEXTURE_2D);
+}
+// dreamy out-of-focus "city lights at night" — smooth bokeh, never stippled
+const SCENES = [
+  { name:'City lights', grad:['#070a16','#0a1020','#05060c'], pal:[[120,150,255],[90,200,255],[255,170,90],[255,90,80],[180,140,255],[120,255,210],[255,225,150]] },
+  { name:'Blue hour',   grad:['#04060f','#0a1428','#04060e'], pal:[[90,140,255],[120,180,255],[80,200,235],[150,160,255],[200,220,255]] },
+  { name:'Amber',       grad:['#100a08','#1a0f0a','#080604'], pal:[[255,170,80],[255,120,60],[255,210,140],[255,90,70],[230,160,90]] },
+  { name:'Neon',        grad:['#0a0612','#120a20','#05030a'], pal:[[255,60,170],[80,230,255],[170,90,255],[60,255,180],[255,90,90]] },
+  { name:'Forest',      grad:['#05100a','#0a1a12','#040806'], pal:[[120,255,180],[90,200,150],[180,255,200],[120,230,255],[230,255,210]] },
+];
+function bokehScene(s){
+  const cv=document.createElement('canvas'); cv.width=1280; cv.height=720;
+  const x=cv.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,720);
+  g.addColorStop(0,s.grad[0]); g.addColorStop(0.55,s.grad[1]); g.addColorStop(1,s.grad[2]);
+  x.fillStyle=g; x.fillRect(0,0,1280,720);
+  x.globalCompositeOperation='lighter';
+  let seed=987654321; const rnd=()=>{ seed^=seed<<13; seed^=seed>>>17; seed^=seed<<5; return ((seed>>>0)/4294967296); };
+  for(let i=0;i<52;i++){
+    const cx=rnd()*1280, cy=110+rnd()*620, r=16+rnd()*130;
+    const col=s.pal[(rnd()*s.pal.length)|0]; const a=0.06+rnd()*0.26;
+    const rg=x.createRadialGradient(cx,cy,0,cx,cy,r);
+    rg.addColorStop(0,`rgba(${col[0]},${col[1]},${col[2]},${a})`);
+    rg.addColorStop(0.5,`rgba(${col[0]},${col[1]},${col[2]},${a*0.4})`);
+    rg.addColorStop(1,'rgba(0,0,0,0)');
+    x.fillStyle=rg; x.beginPath(); x.arc(cx,cy,r,0,6.2832); x.fill();
+  }
+  const mg=x.createRadialGradient(980,150,0,980,150,95);  // soft moon / lamp
+  mg.addColorStop(0,'rgba(225,232,255,0.55)'); mg.addColorStop(1,'rgba(225,232,255,0)');
+  x.fillStyle=mg; x.beginPath(); x.arc(980,150,95,0,6.2832); x.fill();
+  x.globalCompositeOperation='source-over';
+  return cv;
+}
+let usingImage=false;
+function showScene(){ setTexture(bokehScene(SCENES[cfg.scene]||SCENES[0]), 1280, 720); usingImage=false; }
+function loadImage(url){
+  url=(url||'').trim();
+  if(!url){ showScene(); return; }
+  const img=new Image();
+  if(/^https?:/i.test(url)) img.crossOrigin='anonymous';   // only meaningful for web URLs
+  img.onload=()=>{ try{ setTexture(img, img.naturalWidth||1280, img.naturalHeight||720); usingImage=true; }
+                   catch(e){ showScene(); } };
+  img.onerror=()=> showScene();
+  img.src=url;
+}
+// instant + reliable scene first, then try the user's image if one is configured
+showScene();
+if (cfg.image && cfg.image.trim()) loadImage(cfg.image);
+
+/* ── Sizing / input ─────────────────────────────────────────────────────── */
 let W=0,H=0,DPR=1;
-function resize(){ DPR=Math.min(window.devicePixelRatio||1,1.0);
+function resize(){ DPR=Math.min(window.devicePixelRatio||1,1.25);
   W=window.innerWidth; H=window.innerHeight;
   canvas.width=Math.floor(W*DPR); canvas.height=Math.floor(H*DPR);
   gl.viewport(0,0,canvas.width,canvas.height); }
 window.addEventListener('resize', resize);
 
-const mouse={x:0.5,y:0.62,tx:0.5,ty:0.62}; let lantern=0, lanternT=0, flash=0;
-window.addEventListener('mousemove', e=>{ mouse.tx=e.clientX/window.innerWidth; mouse.ty=1-e.clientY/window.innerHeight; lanternT=1.0; });
-window.addEventListener('mousedown', ()=>{ flash=1.0; });
-window.addEventListener('touchstart', e=>{ const t=e.touches[0]; mouse.tx=t.clientX/window.innerWidth; mouse.ty=1-t.clientY/window.innerHeight; lanternT=1.0; flash=0.7; }, {passive:true});
-
-let audio=0, audioT=0;
-function feedAudio(arr){ if(!cfg.audio||!arr||!arr.length) return; let s=0,n=Math.min(48,arr.length);
-  for(let i=0;i<n;i++) s+=Math.abs(arr[i]); audioT=Math.min(1.0,(s/n)*2.0); }
-window.livelyAudioListener=feedAudio;
-if(typeof window.wallpaperRegisterAudioListener==='function') window.wallpaperRegisterAudioListener(feedAudio);
+const mouse={x:0.5,y:0.5,tx:0.5,ty:0.5};
+window.addEventListener('mousemove', e=>{ mouse.tx=e.clientX/window.innerWidth; mouse.ty=1-e.clientY/window.innerHeight; });
+window.addEventListener('touchmove', e=>{ const t=e.touches[0]; mouse.tx=t.clientX/window.innerWidth; mouse.ty=1-t.clientY/window.innerHeight; }, {passive:true});
 
 function applyProp(name,val){ switch(name){
-  case 'tint': cfg.tint=+val; break;
+  case 'scene': cfg.scene=+val; if(!usingImage) showScene(); break;
+  case 'image': cfg.image=String(val); loadImage(cfg.image); break;
+  case 'rain': cfg.rain=+val; break;
+  case 'frost': cfg.frost=+val; break;
+  case 'zoom': cfg.zoom=+val; break;
+  case 'brightness': cfg.brightness=+val; break;
+  case 'vignette': cfg.vignette=+val; break;
   case 'grain': cfg.grain=+val; break;
-  case 'exposure': cfg.exposure=+val; break;
-  case 'density': cfg.density=+val; break;
+  case 'tint': cfg.tint=+val; break;
   case 'parallax': cfg.parallax=!!val; break;
-  case 'lantern': cfg.lantern=!!val; break;
-  case 'audio': cfg.audio=!!val; break;
+  case 'wipe': cfg.wipe=!!val; break;
 }}
 window.livelyPropertyListener=applyProp;
 window.wallpaperPropertyListener={ applyUserProperties(p){ for(const k in p){ let v=p[k].value;
@@ -251,29 +278,29 @@ let running=true;
 document.addEventListener('visibilitychange',()=>{ running=!document.hidden; if(running){ last=performance.now(); requestAnimationFrame(frame);} });
 
 /* ── Loop ───────────────────────────────────────────────────────────────── */
-let last=performance.now(), t=0, acc=0; const FRAME=1000/40;
+let last=performance.now(), t=0, acc=0; const FRAME=1000/45;
 function frame(now){
   if(!running) return;
-  acc += now-last; last=now;
+  acc+=now-last; last=now;
   if(acc<FRAME){ requestAnimationFrame(frame); return; }
   const dt=Math.min(3,acc/16.667); acc=0; t+=dt*0.016;
+  mouse.x+=(mouse.tx-mouse.x)*0.07; mouse.y+=(mouse.ty-mouse.y)*0.07;
 
-  mouse.x+=(mouse.tx-mouse.x)*0.06; mouse.y+=(mouse.ty-mouse.y)*0.06;
-  lanternT*=0.99; lantern+=((cfg.lantern?lanternT:0)-lantern)*0.08;
-  flash*=Math.pow(0.9,dt);
-  audio+=(audioT-audio)*0.15; audioT*=0.94;
-
+  gl.useProgram(prog);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(U.uTex,0);
   gl.uniform2f(U.uRes, canvas.width, canvas.height);
-  gl.uniform1f(U.uTime, t);
+  gl.uniform2f(U.uImgRes, imgW, imgH);
   gl.uniform2f(U.uMouse, mouse.x, mouse.y);
-  gl.uniform1f(U.uLantern, lantern);
-  gl.uniform1f(U.uFlash, flash);
-  gl.uniform1f(U.uParallax, cfg.parallax?1:0);
+  gl.uniform1f(U.uTime, t);
+  gl.uniform1f(U.uRain, cfg.rain/100);
+  gl.uniform1f(U.uFrost, cfg.frost/100);
+  gl.uniform1f(U.uZoom, cfg.zoom/100);
+  gl.uniform1f(U.uBright, cfg.brightness/100);
+  gl.uniform1f(U.uVig, cfg.vignette/100);
   gl.uniform1f(U.uGrain, cfg.grain/100);
-  gl.uniform1f(U.uExposure, cfg.exposure/100);
-  gl.uniform1f(U.uDensity, cfg.density/100);
+  gl.uniform1f(U.uParallax, cfg.parallax?1:0);
+  gl.uniform1f(U.uWipe, cfg.wipe?1:0);
   gl.uniform1i(U.uTint, cfg.tint|0);
-  gl.uniform1f(U.uAudio, audio);
   gl.drawArrays(gl.TRIANGLES,0,3);
   requestAnimationFrame(frame);
 }
