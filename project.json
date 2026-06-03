@@ -1,38 +1,34 @@
 {
   "title": "Living Photo",
-  "description": "Turns a still image into a cinematic live wallpaper: slow drift + mouse parallax with real falling rain or snow, drifting fog, floating dust/embers, vignette, colour grade and film grain. Use your own photo (bg.jpg or an image URL).",
+  "description": "Turns a still image into a cinematic live wallpaper: slow drift + mouse parallax with a realistic blizzard / rain (depth-of-field, motion blur, gusting wind), drifting mist, vignette, grade and film grain. Renders at native resolution. Use your own photo (bg.jpg or an image URL).",
   "type": "web",
   "file": "index.html",
   "preview": "preview.jpg",
-  "tags": ["Nature", "Relaxing", "Abstract"],
+  "tags": ["Nature", "Relaxing", "Anime"],
   "visibility": "private",
   "general": {
     "properties": {
       "image": { "type": "textinput", "text": "Your image URL (or put bg.jpg in this folder)", "value": "" },
+      "fit": {
+        "type": "combo", "text": "Fit", "value": "0",
+        "options": [ { "label": "Fill screen (crop)", "value": "0" }, { "label": "Fit whole image", "value": "1" } ]
+      },
       "weather": {
-        "type": "combo", "text": "Weather", "value": "0",
+        "type": "combo", "text": "Weather", "value": "1",
         "options": [
-          { "label": "Rain", "value": "0" },
-          { "label": "Snow", "value": "1" },
-          { "label": "Fog", "value": "2" },
-          { "label": "Embers", "value": "3" },
-          { "label": "None", "value": "4" }
+          { "label": "Rain", "value": "0" }, { "label": "Snow", "value": "1" },
+          { "label": "Mist", "value": "2" }, { "label": "Embers", "value": "3" }, { "label": "None", "value": "4" }
         ]
       },
-      "intensity": { "type": "slider", "text": "Weather intensity", "value": 55, "min": 0, "max": 100, "fraction": false },
-      "fog":       { "type": "slider", "text": "Fog / mist",        "value": 35, "min": 0, "max": 100, "fraction": false },
-      "wind":      { "type": "slider", "text": "Wind",              "value": 50, "min": 0, "max": 100, "fraction": false },
+      "intensity": { "type": "slider", "text": "Weather intensity", "value": 72, "min": 0, "max": 100, "fraction": false },
+      "fog":       { "type": "slider", "text": "Mist / haze",       "value": 30, "min": 0, "max": 100, "fraction": false },
+      "wind":      { "type": "slider", "text": "Wind",              "value": 60, "min": 0, "max": 100, "fraction": false },
       "grade": {
-        "type": "combo", "text": "Colour grade", "value": "1",
-        "options": [
-          { "label": "None", "value": "0" },
-          { "label": "Cool", "value": "1" },
-          { "label": "Warm", "value": "2" },
-          { "label": "Noir", "value": "3" }
-        ]
+        "type": "combo", "text": "Colour grade", "value": "0",
+        "options": [ { "label": "None", "value": "0" }, { "label": "Cool", "value": "1" }, { "label": "Warm", "value": "2" }, { "label": "Noir", "value": "3" } ]
       },
-      "vignette": { "type": "slider", "text": "Vignette",   "value": 58, "min": 0, "max": 100, "fraction": false },
-      "grain":    { "type": "slider", "text": "Film grain", "value": 30, "min": 0, "max": 100, "fraction": false },
+      "vignette": { "type": "slider", "text": "Vignette",   "value": 50, "min": 0, "max": 100, "fraction": false },
+      "grain":    { "type": "slider", "text": "Film grain", "value": 26, "min": 0, "max": 100, "fraction": false },
       "parallax": { "type": "bool", "text": "Mouse parallax", "value": true },
       "drift":    { "type": "bool", "text": "Cinematic drift", "value": true }
     }

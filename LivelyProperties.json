@@ -4,36 +4,42 @@
     "text": "Your image URL (or put bg.jpg in this folder)",
     "value": ""
   },
+  "fit": {
+    "type": "dropdown",
+    "text": "Fit",
+    "value": 0,
+    "items": ["Fill screen (crop)", "Fit whole image"]
+  },
   "weather": {
     "type": "dropdown",
     "text": "Weather",
-    "value": 0,
-    "items": ["Rain", "Snow", "Fog", "Embers", "None"]
+    "value": 1,
+    "items": ["Rain", "Snow", "Mist", "Embers", "None"]
   },
   "intensity": {
     "type": "slider", "text": "Weather intensity",
-    "value": 55, "min": 0, "max": 100, "step": 1
+    "value": 72, "min": 0, "max": 100, "step": 1
   },
   "fog": {
-    "type": "slider", "text": "Fog / mist",
-    "value": 35, "min": 0, "max": 100, "step": 1
+    "type": "slider", "text": "Mist / blowing haze",
+    "value": 30, "min": 0, "max": 100, "step": 1
   },
   "wind": {
     "type": "slider", "text": "Wind (left ↔ right)",
-    "value": 50, "min": 0, "max": 100, "step": 1
+    "value": 60, "min": 0, "max": 100, "step": 1
   },
   "grade": {
     "type": "dropdown", "text": "Colour grade",
-    "value": 1,
+    "value": 0,
     "items": ["None", "Cool", "Warm", "Noir"]
   },
   "vignette": {
     "type": "slider", "text": "Vignette",
-    "value": 58, "min": 0, "max": 100, "step": 1
+    "value": 50, "min": 0, "max": 100, "step": 1
   },
   "grain": {
     "type": "slider", "text": "Film grain",
-    "value": 30, "min": 0, "max": 100, "step": 1
+    "value": 26, "min": 0, "max": 100, "step": 1
   },
   "parallax": {
     "type": "checkbox", "text": "Mouse parallax", "value": true

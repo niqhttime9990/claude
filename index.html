@@ -10,13 +10,12 @@
   .layer { position: fixed; inset: 0; pointer-events: none; }
   #bg {
     background-position: center; background-size: cover; background-repeat: no-repeat;
-    transform: scale(1.12); will-change: transform;
-    background-image: linear-gradient(160deg,#0b0f1c 0%,#0a0e1a 45%,#050609 100%);
+    background-color: #05060a; transform: scale(1.10); will-change: transform;
+    background-image: linear-gradient(160deg,#10141f 0%,#0b0e16 45%,#050609 100%);
   }
-  #grade { mix-blend-mode: soft-light; opacity: 0; transition: opacity 1.5s, background 1.5s; }
+  #grade { mix-blend-mode: soft-light; opacity: 0; transition: opacity 1.2s, background 1.2s; }
   #vignette { background: radial-gradient(125% 115% at 50% 46%,
-      rgba(0,0,0,0) 45%, rgba(0,0,0,.32) 78%, rgba(0,0,0,.62) 100%); }
-  #fx { } /* canvas */
+      rgba(0,0,0,0) 46%, rgba(0,0,0,.30) 80%, rgba(0,0,0,.60) 100%); }
   #grain { mix-blend-mode: overlay; opacity: .05; }
   #bg{z-index:0}#grade{z-index:1}#fx{z-index:2}#vignette{z-index:3}#grain{z-index:4}
 </style>
@@ -32,25 +31,26 @@
 /* ──────────────────────────────────────────────────────────────────────────
    LIVING PHOTO  ·  turn a still image into a cinematic live wallpaper
    ----------------------------------------------------------------------------
-   Displays YOUR image (bg.jpg in this folder, or an image URL) as the backdrop
-   and brings it alive with a slow cinematic drift + mouse parallax and a
-   tasteful weather/atmosphere layer — real falling rain or snow, drifting fog,
-   floating dust/embers — finished with vignette, colour grade and film grain.
-   The image is a background layer (not a GPU texture), so local files work as a
-   desktop wallpaper. Smooth 60fps canvas. Zero dependencies.
+   Shows YOUR image (bg.jpg here, or an image URL) and brings it alive with a
+   slow cinematic drift + mouse parallax and a realistic weather layer — a true
+   blizzard / rain with depth-of-field, motion blur and gusting wind — plus
+   drifting mist, vignette, grade and film grain. Renders at the screen's native
+   resolution. The image is a background layer (not a GPU texture) so local files
+   work as a desktop wallpaper. Smooth 60fps canvas, zero dependencies.
    ────────────────────────────────────────────────────────────────────────── */
 
 const cfg = {
-  image: '',        // image URL; if empty, tries bg.jpg, else a dark gradient
-  weather: 0,       // 0 Rain  1 Snow  2 Fog  3 Embers  4 None
-  intensity: 55,    // 0..100
-  fog: 35,          // 0..100 drifting fog
-  wind: 50,         // 0..100 (50 = calm; <50 left, >50 right)
+  image: '',        // image URL; empty → tries bg.jpg, else a dark gradient
+  weather: 1,       // 0 Rain  1 Snow  2 Mist  3 Embers  4 None
+  intensity: 72,    // 0..100
+  fog: 30,          // 0..100 drifting mist / blowing snow haze
+  wind: 60,         // 0..100 (50 = calm)
+  fit: 0,           // 0 Fill (cover)  1 Fit whole image (contain)
   parallax: true,
   drift: true,      // slow cinematic ken-burns
-  vignette: 58,     // 0..100
-  grain: 30,        // 0..100
-  grade: 1,         // 0 None 1 Cool 2 Warm 3 Noir
+  vignette: 50,     // 0..100
+  grain: 26,        // 0..100
+  grade: 0,         // 0 None 1 Cool 2 Warm 3 Noir
 };
 
 const bg = document.getElementById('bg');
@@ -61,98 +61,98 @@ const fx = document.getElementById('fx');
 const ctx = fx.getContext('2d');
 
 /* ── Background image (CSS layer — local files OK in Lively) ─────────────── */
-const FALLBACK = 'linear-gradient(160deg,#0b0f1c 0%,#0a0e1a 45%,#050609 100%)';
+const FALLBACK = 'linear-gradient(160deg,#10141f 0%,#0b0e16 45%,#050609 100%)';
+let hasImage = false;
+function setFit(){ bg.style.backgroundSize = (cfg.fit===1 ? 'contain' : 'cover') + (hasImage ? ', cover' : ''); }
 function setBg(url){
   url = (url||'').trim();
-  if (!url) { bg.style.backgroundImage = FALLBACK; return; }
-  // probe load so a missing file falls back cleanly (display only, no CORS read)
+  if (!url) { bg.style.backgroundImage = FALLBACK; hasImage=false; setFit(); return; }
   const img = new Image();
-  img.onload = () => { bg.style.backgroundImage = `url("${url}"), ${FALLBACK}`; };
-  img.onerror = () => { bg.style.backgroundImage = FALLBACK; };
+  img.onload = () => { bg.style.backgroundImage = `url("${url}"), ${FALLBACK}`; hasImage=true; setFit(); };
+  img.onerror = () => { bg.style.backgroundImage = FALLBACK; hasImage=false; setFit(); };
   img.src = url;
 }
 setBg(cfg.image || 'bg.jpg');
 
 /* ── Colour grade ───────────────────────────────────────────────────────── */
 function applyGrade(){
-  const G = [null,
-    {c:'rgb(120,160,255)', b:'soft-light', o:0.30},   // cool
-    {c:'rgb(255,170,90)',  b:'soft-light', o:0.28},   // warm
-    {c:'rgb(160,160,170)', b:'saturation', o:0.9 } ]; // noir-ish
-  const g = G[cfg.grade];
-  if (!g) { gradeEl.style.opacity = 0; return; }
-  gradeEl.style.background = g.c; gradeEl.style.mixBlendMode = g.b; gradeEl.style.opacity = g.o;
+  const G=[null,{c:'rgb(120,160,255)',b:'soft-light',o:0.28},{c:'rgb(255,170,90)',b:'soft-light',o:0.26},{c:'rgb(150,150,160)',b:'saturation',o:0.85}];
+  const g=G[cfg.grade]; if(!g){ gradeEl.style.opacity=0; return; }
+  gradeEl.style.background=g.c; gradeEl.style.mixBlendMode=g.b; gradeEl.style.opacity=g.o;
 }
 
-/* ── Film grain (animated CSS noise) ────────────────────────────────────── */
+/* ── Film grain ─────────────────────────────────────────────────────────── */
 (function makeGrain(){
   const n=document.createElement('canvas'); n.width=n.height=100;
   const g=n.getContext('2d'), d=g.createImageData(100,100);
   for(let i=0;i<d.data.length;i+=4){ const v=Math.random()*255|0; d.data[i]=d.data[i+1]=d.data[i+2]=v; d.data[i+3]=255; }
-  g.putImageData(d,0,0);
-  grainEl.style.backgroundImage=`url("${n.toDataURL()}")`; grainEl.style.backgroundRepeat='repeat';
+  g.putImageData(d,0,0); grainEl.style.backgroundImage=`url("${n.toDataURL()}")`; grainEl.style.backgroundRepeat='repeat';
 })();
 
-/* ── Sizing ─────────────────────────────────────────────────────────────── */
+/* ── Sizing (native resolution) ─────────────────────────────────────────── */
 let W=0,H=0,DPR=1;
 function resize(){ DPR=Math.min(window.devicePixelRatio||1,2);
   W=window.innerWidth; H=window.innerHeight;
-  fx.width=Math.floor(W*DPR); fx.height=Math.floor(H*DPR);
-  ctx.setTransform(DPR,0,0,DPR,0,0);
-  buildParticles();
+  fx.width=Math.round(W*DPR); fx.height=Math.round(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0); buildParticles();
 }
 window.addEventListener('resize', resize);
 
-/* ── Soft sprites (fog, snow bokeh, glow) ───────────────────────────────── */
+/* ── Soft sprites ───────────────────────────────────────────────────────── */
 function softSprite(size, inner){
   const c=document.createElement('canvas'); c.width=c.height=size;
   const g=c.getContext('2d'); const r=size/2;
   const rg=g.createRadialGradient(r,r,0,r,r,r);
-  rg.addColorStop(0,`rgba(255,255,255,${inner})`);
-  rg.addColorStop(0.5,`rgba(255,255,255,${inner*0.35})`);
-  rg.addColorStop(1,'rgba(255,255,255,0)');
+  rg.addColorStop(0,`rgba(255,255,255,${inner})`); rg.addColorStop(0.45,`rgba(255,255,255,${inner*0.4})`); rg.addColorStop(1,'rgba(255,255,255,0)');
   g.fillStyle=rg; g.fillRect(0,0,size,size); return c;
 }
-const fogSprite = softSprite(256, 0.5);
-const glowSprite = softSprite(64, 1.0);
+const soft = softSprite(64,1.0);
 
 /* ── Particles ──────────────────────────────────────────────────────────── */
-let rain=[], snow=[], dust=[], fogs=[];
+let flakes=[], rain=[], dust=[], mist=[], sheets=[];
 const rnd=(a,b)=>a+Math.random()*(b-a);
 function buildParticles(){
-  rain=[]; snow=[]; dust=[]; fogs=[];
+  flakes=[]; rain=[]; dust=[]; mist=[]; sheets=[];
   const area=W*H, I=cfg.intensity/100;
-  if (cfg.weather===0){ const n=Math.round(area/2200*(0.3+I*1.4));
-    for(let i=0;i<n;i++) rain.push({x:rnd(-0.1*W,W),y:rnd(0,H),z:Math.random(),len:rnd(9,20),sp:rnd(900,1500)}); }
-  if (cfg.weather===1){ const n=Math.round(area/4200*(0.3+I*1.4));
-    for(let i=0;i<n;i++) snow.push({x:rnd(0,W),y:rnd(0,H),z:Math.random(),r:rnd(1,3),ph:rnd(0,6.28),sp:rnd(20,55)}); }
+  if (cfg.weather===1){ // snow — 3 depth tiers blended via z
+    const n=Math.round(area/2600*(0.35+I*1.6));
+    for(let i=0;i<n;i++){ const z=Math.pow(Math.random(),1.3);
+      flakes.push({x:rnd(-0.1*W,W*1.1),y:rnd(-0.1*H,H),z,
+        r:0.5+z*z*4.2, vy:1.0+z*4.0, sway:rnd(0.3,1.4)*(0.5+z), ph:rnd(0,6.28), fsp:rnd(0.01,0.04)}); }
+    for(let i=0;i<3+Math.round(I*4);i++) sheets.push({x:rnd(-W,W),y:rnd(0,H),w:rnd(W*0.4,W*0.9),h:rnd(H*0.08,H*0.22),sp:rnd(40,90),a:rnd(0.02,0.05)});
+  }
+  if (cfg.weather===0){ // rain
+    const n=Math.round(area/2200*(0.35+I*1.5));
+    for(let i=0;i<n;i++){ const z=Math.pow(Math.random(),1.2);
+      rain.push({x:rnd(-0.1*W,W*1.1),y:rnd(0,H),z,len:7+z*z*26,vy:12+z*22}); }
+  }
   if (cfg.weather===3){ const n=Math.round(area/9000*(0.3+I*1.4));
-    for(let i=0;i<n;i++) dust.push({x:rnd(0,W),y:rnd(0,H),vx:rnd(-6,6),vy:rnd(-18,-4),ph:rnd(0,6.28),sp:rnd(1,2.6),r:rnd(1,2.4)}); }
-  // ambient dust for rain/snow too (subtle depth)
-  if (cfg.weather===0||cfg.weather===1){ const n=Math.round(area/26000);
-    for(let i=0;i<n;i++) dust.push({x:rnd(0,W),y:rnd(0,H),vx:rnd(-4,4),vy:rnd(-8,-1),ph:rnd(0,6.28),sp:rnd(.8,2),r:rnd(.8,1.8)}); }
-  const fn=4+Math.round(cfg.fog/100*5);
-  for(let i=0;i<fn;i++) fogs.push({x:rnd(-0.2*W,W),y:rnd(H*0.25,H*0.95),r:rnd(W*0.18,W*0.42),sp:rnd(4,16),a:rnd(0.02,0.06)});
+    for(let i=0;i<n;i++) dust.push({x:rnd(0,W),y:rnd(0,H),vx:rnd(-6,6),vy:rnd(-18,-4),ph:rnd(0,6.28),sp:rnd(1,2.6),r:rnd(1,2.4),warm:1}); }
+  if (cfg.weather===0||cfg.weather===1){ const n=Math.round(area/30000);
+    for(let i=0;i<n;i++) dust.push({x:rnd(0,W),y:rnd(0,H),vx:rnd(-4,4),vy:rnd(-7,-1),ph:rnd(0,6.28),sp:rnd(.8,2),r:rnd(.8,1.6),warm:0}); }
+  const fn=3+Math.round(cfg.fog/100*6);
+  for(let i=0;i<fn;i++) mist.push({x:rnd(-0.2*W,W),y:rnd(H*0.2,H),r:rnd(W*0.18,W*0.45),sp:rnd(6,20),a:rnd(0.015,0.05)});
 }
 
 /* ── Input ──────────────────────────────────────────────────────────────── */
 const mouse={x:0.5,y:0.5,tx:0.5,ty:0.5};
-window.addEventListener('mousemove',e=>{ mouse.tx=e.clientX/window.innerWidth; mouse.ty=e.clientY/window.innerHeight; });
-window.addEventListener('touchmove',e=>{ const t=e.touches[0]; mouse.tx=t.clientX/innerWidth; mouse.ty=t.clientY/innerHeight; },{passive:true});
+addEventListener('mousemove',e=>{ mouse.tx=e.clientX/innerWidth; mouse.ty=e.clientY/innerHeight; });
+addEventListener('touchmove',e=>{ const t=e.touches[0]; mouse.tx=t.clientX/innerWidth; mouse.ty=t.clientY/innerHeight; },{passive:true});
 
+const mix=(a,b,t)=>a+(b-a)*t;
 function applyProp(name,val){ switch(name){
   case 'image': cfg.image=String(val); setBg(cfg.image||'bg.jpg'); break;
   case 'weather': cfg.weather=+val; buildParticles(); break;
   case 'intensity': cfg.intensity=+val; buildParticles(); break;
   case 'fog': cfg.fog=+val; buildParticles(); break;
   case 'wind': cfg.wind=+val; break;
+  case 'fit': cfg.fit=+val; setFit(); break;
   case 'parallax': cfg.parallax=!!val; break;
   case 'drift': cfg.drift=!!val; break;
-  case 'vignette': cfg.vignette=+val; vigEl.style.opacity=mix(0.2,1.0,cfg.vignette/100); break;
+  case 'vignette': cfg.vignette=+val; vigEl.style.opacity=mix(0.15,1.0,cfg.vignette/100); break;
   case 'grain': cfg.grain=+val; grainEl.style.opacity=String(cfg.grain/100*0.09); break;
   case 'grade': cfg.grade=+val; applyGrade(); break;
 }}
-const mix=(a,b,t)=>a+(b-a)*t;
 window.livelyPropertyListener=applyProp;
 window.wallpaperPropertyListener={ applyUserProperties(p){ for(const k in p){ let v=p[k].value;
   if(typeof v==='string'&&/^\d+$/.test(v)) v=+v; applyProp(k,v);} } };
@@ -166,61 +166,85 @@ function frame(now){
   if(!running) return;
   const dt=Math.min(3,(now-last)/16.667); last=now; t+=dt*0.016;
   mouse.x+=(mouse.tx-mouse.x)*0.05; mouse.y+=(mouse.ty-mouse.y)*0.05;
-  const wind=(cfg.wind-50)/50*2.2;
 
-  // cinematic drift + parallax on the photo
+  // gusting wind — surges and lulls (key to realism)
+  const gust = Math.sin(t*0.5)*0.45 + Math.sin(t*0.23+1.3)*0.3 + Math.sin(t*0.11)*0.25;
+  const I = cfg.intensity/100;
+  const wind = ((cfg.wind-50)/50)*3.4 + gust*(0.6+I*1.4);
+
+  // photo drift + parallax
   const px=cfg.parallax?(mouse.x-0.5):0, py=cfg.parallax?(mouse.y-0.5):0;
-  const kx=cfg.drift?Math.sin(t*0.05)*1.4:0, ky=cfg.drift?Math.cos(t*0.04)*1.0:0;
-  const sc=cfg.drift?(1.12+Math.sin(t*0.03)*0.02):1.12;
-  bg.style.transform=`scale(${sc.toFixed(4)}) translate(${(-px*2.2+kx).toFixed(2)}%, ${(-py*1.6+ky).toFixed(2)}%)`;
-
-  // grain shimmer
+  const kx=cfg.drift?Math.sin(t*0.05)*1.1:0, ky=cfg.drift?Math.cos(t*0.04)*0.8:0;
+  const sc=cfg.drift?(1.10+Math.sin(t*0.03)*0.018):1.10;
+  bg.style.transform=`scale(${sc.toFixed(4)}) translate(${(-px*2.0+kx).toFixed(2)}%, ${(-py*1.4+ky).toFixed(2)}%)`;
   if(cfg.grain>0) grainEl.style.backgroundPosition=`${Math.random()*100|0}px ${Math.random()*100|0}px`;
 
   ctx.clearRect(0,0,W,H);
-  const ox=px*30, oy=py*18; // particle parallax (opposite-ish, subtle)
+  const ox=px*36, oy=py*22;
 
-  // fog (behind particles, soft)
+  // blowing snow sheets (far blizzard haze) — drawn first, faint
+  if(cfg.weather===1){
+    ctx.globalCompositeOperation='screen';
+    for(const s of sheets){ s.x += (s.sp + wind*30)*0.016*dt; if(s.x-s.w>W) s.x=-s.w;
+      ctx.globalAlpha=s.a*(0.6+I*0.6); ctx.drawImage(soft, s.x, s.y, s.w, s.h); }
+    ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
+  }
+
+  // mist
   ctx.globalCompositeOperation='screen';
-  for(const f of fogs){ f.x+=f.sp*0.016*dt*(0.5+wind*0.4); if(f.x-f.r>W) f.x=-f.r*2; if(f.x+f.r<0) f.x=W+f.r;
-    ctx.globalAlpha=f.a*(cfg.fog/50); ctx.drawImage(fogSprite,f.x-f.r+ox*0.4,f.y-f.r*0.55+oy*0.4,f.r*2,f.r*1.1); }
+  for(const f of mist){ f.x+=(f.sp+wind*10)*0.016*dt; if(f.x-f.r>W)f.x=-f.r*2; if(f.x+f.r<0)f.x=W+f.r;
+    ctx.globalAlpha=f.a*(cfg.fog/45); ctx.drawImage(soft,f.x-f.r,f.y-f.r*0.5,f.r*2,f.r); }
   ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
 
-  // rain
-  if(cfg.weather===0){
-    ctx.lineCap='round'; const ang=0.16+wind*0.05;
-    for(const p of rain){ const v=p.sp*(0.5+p.z)*0.016*dt; p.y+=v; p.x+=ang*v;
-      if(p.y>H+20){p.y=-20;p.x=rnd(-0.1*W,W);} if(p.x>W+20)p.x-=W+40; if(p.x<-20)p.x+=W+40;
-      const a=0.10+p.z*0.32, L=p.len*(0.6+p.z); ctx.strokeStyle=`rgba(200,220,255,${a})`; ctx.lineWidth=0.6+p.z*1.1;
-      const dx=p.x+ox*p.z, dy=p.y+oy*p.z;
-      ctx.beginPath(); ctx.moveTo(dx,dy); ctx.lineTo(dx-ang*L*2.2, dy-L*2.2); ctx.stroke(); }
-  }
-  // snow
+  // SNOW — depth-of-field + motion blur
   if(cfg.weather===1){
-    for(const p of snow){ p.ph+=0.02*dt; p.y+=p.sp*(0.4+p.z)*0.016*dt;
-      p.x+=(wind*(0.4+p.z)+Math.sin(p.ph)*0.6)*dt;
-      if(p.y>H+6){p.y=-6;p.x=rnd(0,W);} if(p.x>W+6)p.x=-6; if(p.x<-6)p.x=W+6;
-      const r=p.r*(0.6+p.z), a=0.45+p.z*0.5, dx=p.x+ox*p.z, dy=p.y+oy*p.z;
-      if(p.z>0.66){ ctx.globalAlpha=a*0.8; ctx.drawImage(glowSprite,dx-r*4,dy-r*4,r*8,r*8); }
-      else { ctx.globalAlpha=a; ctx.fillStyle='#eef3ff'; ctx.beginPath(); ctx.arc(dx,dy,r,0,6.2832); ctx.fill(); } }
+    for(const p of flakes){
+      p.ph+=p.fsp*dt;
+      const swayv = Math.sin(p.ph)*p.sway;
+      const vx = (wind*(0.4+p.z*1.6) + swayv);     // px/frame-ish
+      const vy = p.vy;
+      p.x += vx*dt; p.y += vy*dt;
+      if(p.y>H+12){ p.y=-12; p.x=rnd(-0.1*W,W*1.1); }
+      if(p.x>W+30) p.x-=W+60; if(p.x<-30) p.x+=W+60;
+      const dx=p.x+ox*p.z, dy=p.y+oy*p.z, r=p.r;
+      if(p.z>0.6){ // near: blurry, motion-streaked, out of focus
+        const ang=Math.atan2(vy,vx), sp=Math.hypot(vx,vy), streak=1+Math.min(3.2,sp*0.13);
+        ctx.save(); ctx.translate(dx,dy); ctx.rotate(ang);
+        ctx.globalAlpha=mix(0.18,0.42,p.z);
+        ctx.drawImage(soft, -r*4*streak, -r*4, r*8*streak, r*8);
+        ctx.restore();
+      } else { // far: crisp specks
+        ctx.globalAlpha=mix(0.35,0.9,p.z); ctx.fillStyle='#f4f7ff';
+        ctx.beginPath(); ctx.arc(dx,dy,r,0,6.2832); ctx.fill();
+      }
+    }
     ctx.globalAlpha=1;
   }
+
+  // RAIN — motion-blurred streaks, depth layered
+  if(cfg.weather===0){
+    ctx.lineCap='round'; const ang=0.14+wind*0.06;
+    for(const p of rain){ const v=p.vy*dt; p.y+=v; p.x+=ang*v;
+      if(p.y>H+24){p.y=-24;p.x=rnd(-0.1*W,W*1.1);} if(p.x>W+24)p.x-=W+48; if(p.x<-24)p.x+=W+48;
+      const a=mix(0.08,0.36,p.z), L=p.len, dx=p.x+ox*p.z, dy=p.y+oy*p.z;
+      ctx.strokeStyle=`rgba(205,222,255,${a})`; ctx.lineWidth=0.5+p.z*1.4;
+      ctx.beginPath(); ctx.moveTo(dx,dy); ctx.lineTo(dx-ang*L, dy-L); ctx.stroke(); }
+  }
+
   // dust / embers
   if(dust.length){
     ctx.globalCompositeOperation='lighter';
-    const ember=cfg.weather===3;
-    for(const p of dust){ p.ph+=p.sp*0.03*dt; p.x+=(p.vx+wind*8)*0.016*dt; p.y+=p.vy*0.016*dt;
-      if(p.y<-10){p.y=H+10;p.x=rnd(0,W);} if(p.y>H+10){p.y=-10;} if(p.x<-10)p.x=W+10; if(p.x>W+10)p.x=-10;
+    for(const p of dust){ p.ph+=p.sp*0.03*dt; p.x+=(p.vx+wind*7)*0.016*dt; p.y+=p.vy*0.016*dt;
+      if(p.y<-10){p.y=H+10;p.x=rnd(0,W);} if(p.y>H+10)p.y=-10; if(p.x<-10)p.x=W+10; if(p.x>W+10)p.x=-10;
       const tw=0.4+0.6*(Math.sin(p.ph)*0.5+0.5), r=p.r, dx=p.x+ox*1.3, dy=p.y+oy*1.3;
-      ctx.globalAlpha=tw*(ember?0.8:0.5);
-      ctx.fillStyle=ember?'rgba(255,180,90,1)':'rgba(220,230,255,1)';
-      ctx.drawImage(glowSprite,dx-r*4,dy-r*4,r*8,r*8); }
+      ctx.globalAlpha=tw*(p.warm?0.8:0.45); ctx.fillStyle=p.warm?'rgba(255,180,90,1)':'rgba(220,230,255,1)';
+      ctx.drawImage(soft,dx-r*4,dy-r*4,r*8,r*8); }
     ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
   }
   requestAnimationFrame(frame);
 }
 applyGrade();
-vigEl.style.opacity=mix(0.2,1.0,cfg.vignette/100);
+vigEl.style.opacity=mix(0.15,1.0,cfg.vignette/100);
 grainEl.style.opacity=String(cfg.grain/100*0.09);
 resize();
 requestAnimationFrame(frame);
