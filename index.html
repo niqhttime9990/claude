@@ -40,7 +40,7 @@
    ────────────────────────────────────────────────────────────────────────── */
 
 const cfg = {
-  image: '',        // image URL; empty → tries bg.jpg, else a dark gradient
+  image: 'https://i.pinimg.com/736x/d6/6f/fc/d66ffcd7db47d11e20954592bfdaad25.jpg',
   weather: 1,       // 0 Rain  1 Snow  2 Mist  3 Embers  4 None
   intensity: 72,    // 0..100
   fog: 30,          // 0..100 drifting mist / blowing snow haze
@@ -64,15 +64,24 @@ const ctx = fx.getContext('2d');
 const FALLBACK = 'linear-gradient(160deg,#10141f 0%,#0b0e16 45%,#050609 100%)';
 let hasImage = false;
 function setFit(){ bg.style.backgroundSize = (cfg.fit===1 ? 'contain' : 'cover') + (hasImage ? ', cover' : ''); }
-function setBg(url){
-  url = (url||'').trim();
-  if (!url) { bg.style.backgroundImage = FALLBACK; hasImage=false; setFit(); return; }
-  const img = new Image();
-  img.onload = () => { bg.style.backgroundImage = `url("${url}"), ${FALLBACK}`; hasImage=true; setFit(); };
-  img.onerror = () => { bg.style.backgroundImage = FALLBACK; hasImage=false; setFit(); };
-  img.src = url;
+// For a Pinterest /NNNx/ thumbnail, try the full-res originals (then 1200x) first.
+function candidates(url){
+  url=(url||'').trim(); if(!url) return [];
+  const out=[]; const m=url.match(/^(https?:\/\/i\.pinimg\.com\/)\d+x\/(.+)$/i);
+  if(m) out.push(m[1]+'originals/'+m[2], m[1]+'1200x/'+m[2]);
+  out.push(url); return out.filter((v,i)=>out.indexOf(v)===i);
 }
-setBg(cfg.image || 'bg.jpg');
+function loadImageChain(urls, i){
+  i=i||0;
+  if(i>=urls.length){ bg.style.backgroundImage=FALLBACK; hasImage=false; setFit(); return; }
+  const u=urls[i], img=new Image();
+  img.onload =()=>{ bg.style.backgroundImage=`url("${u}"), ${FALLBACK}`; hasImage=true; setFit(); };
+  img.onerror=()=> loadImageChain(urls, i+1);
+  img.src=u;
+}
+function setBg(url){ loadImageChain((url&&url.trim()) ? candidates(url) : ['bg.jpg']); }
+// init: a local bg.jpg always wins; otherwise the configured image URL (full-res first)
+loadImageChain(['bg.jpg', ...candidates(cfg.image)]);
 
 /* ── Colour grade ───────────────────────────────────────────────────────── */
 function applyGrade(){

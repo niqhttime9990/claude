@@ -2,7 +2,7 @@
   "image": {
     "type": "textbox",
     "text": "Your image URL (or put bg.jpg in this folder)",
-    "value": ""
+    "value": "https://i.pinimg.com/736x/d6/6f/fc/d66ffcd7db47d11e20954592bfdaad25.jpg"
   },
   "fit": {
     "type": "dropdown",
