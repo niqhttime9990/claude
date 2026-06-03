@@ -1,40 +1,49 @@
 {
-  "scene": {
+  "theme": {
     "type": "dropdown",
-    "text": "Scene",
-    "value": 1,
-    "items": ["Procedural Peaks", "Mountain Lake", "River Canyon", "Canyon Valley", "Waterfall", "Forest", "Seascape", "My Photo (photos/custom.jpg)", "Custom URL"]
+    "text": "Colour theme",
+    "value": 0,
+    "items": ["Spectrum", "Fire", "Ocean", "Neon", "Pastel", "Mono (teal)"]
   },
-  "customUrl": {
-    "type": "textbox",
-    "text": "Custom image URL",
-    "value": ""
-  },
-  "weather": {
-    "type": "dropdown",
-    "text": "Weather",
-    "value": 1,
-    "items": ["None", "Snow", "Rain", "Storm + lightning", "Fog", "Sun rays", "Sparkle", "Fireflies", "Falling petals"]
-  },
-  "intensity": {
+  "swirl": {
     "type": "slider",
-    "text": "Weather intensity",
+    "text": "Swirliness",
     "value": 60, "min": 0, "max": 100, "step": 1
   },
-  "timeOfDay": {
-    "type": "dropdown",
-    "text": "Time of day / mood",
-    "value": 0,
-    "items": ["Auto (real clock)", "Dawn", "Day", "Golden hour", "Dusk", "Night"]
+  "fade": {
+    "type": "slider",
+    "text": "Fade speed",
+    "value": 24, "min": 0, "max": 100, "step": 1
   },
-  "parallax": {
+  "splatSize": {
+    "type": "slider",
+    "text": "Brush size",
+    "value": 33, "min": 0, "max": 100, "step": 1
+  },
+  "glow": {
+    "type": "slider",
+    "text": "Glow (bloom)",
+    "value": 50, "min": 0, "max": 100, "step": 1
+  },
+  "quality": {
+    "type": "dropdown",
+    "text": "Quality",
+    "value": 1,
+    "items": ["Low (best performance)", "Medium", "High (best looks)"]
+  },
+  "auto": {
     "type": "checkbox",
-    "text": "Mouse parallax",
+    "text": "Self-stir when idle",
     "value": true
   },
-  "grain": {
+  "audio": {
     "type": "checkbox",
-    "text": "Film grain",
+    "text": "React to music",
+    "value": true
+  },
+  "shading": {
+    "type": "checkbox",
+    "text": "3D shading",
     "value": true
   }
 }

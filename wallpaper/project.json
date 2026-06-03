@@ -1,62 +1,43 @@
 {
-  "title": "Living Scenery",
-  "description": "An interactive scenic photo brought to life: cinematic drift + mouse parallax with layered weather (snow, rain, storms, fog, god rays, sparkle, fireflies, petals), time-of-day colour grading and film grain. Use built-in scenes or your own photo.",
+  "title": "Liquid Light",
+  "description": "A real-time GPU fluid simulation — incompressible Navier–Stokes with vorticity and HDR bloom. Push glowing, swirling ink with your mouse; it self-stirs when idle, drifts through colour, and can react to music.",
   "type": "web",
   "file": "index.html",
   "preview": "preview.jpg",
-  "tags": ["Nature", "Relaxing", "Abstract"],
+  "tags": ["Abstract", "Relaxing"],
   "visibility": "private",
   "general": {
     "properties": {
-      "scene": {
+      "theme": {
         "type": "combo",
-        "text": "Scene",
-        "value": "1",
-        "options": [
-          { "label": "Procedural Peaks", "value": "0" },
-          { "label": "Mountain Lake", "value": "1" },
-          { "label": "River Canyon", "value": "2" },
-          { "label": "Canyon Valley", "value": "3" },
-          { "label": "Waterfall", "value": "4" },
-          { "label": "Forest", "value": "5" },
-          { "label": "Seascape", "value": "6" },
-          { "label": "My Photo (photos/custom.jpg)", "value": "7" },
-          { "label": "Custom URL", "value": "8" }
-        ]
-      },
-      "customUrl": { "type": "textinput", "text": "Custom image URL", "value": "" },
-      "weather": {
-        "type": "combo",
-        "text": "Weather",
-        "value": "1",
-        "options": [
-          { "label": "None", "value": "0" },
-          { "label": "Snow", "value": "1" },
-          { "label": "Rain", "value": "2" },
-          { "label": "Storm + lightning", "value": "3" },
-          { "label": "Fog", "value": "4" },
-          { "label": "Sun rays", "value": "5" },
-          { "label": "Sparkle", "value": "6" },
-          { "label": "Fireflies", "value": "7" },
-          { "label": "Falling petals", "value": "8" }
-        ]
-      },
-      "intensity": { "type": "slider", "text": "Weather intensity", "value": 60, "min": 0, "max": 100, "fraction": false },
-      "timeOfDay": {
-        "type": "combo",
-        "text": "Time of day / mood",
+        "text": "Colour theme",
         "value": "0",
         "options": [
-          { "label": "Auto (real clock)", "value": "0" },
-          { "label": "Dawn", "value": "1" },
-          { "label": "Day", "value": "2" },
-          { "label": "Golden hour", "value": "3" },
-          { "label": "Dusk", "value": "4" },
-          { "label": "Night", "value": "5" }
+          { "label": "Spectrum", "value": "0" },
+          { "label": "Fire", "value": "1" },
+          { "label": "Ocean", "value": "2" },
+          { "label": "Neon", "value": "3" },
+          { "label": "Pastel", "value": "4" },
+          { "label": "Mono (teal)", "value": "5" }
         ]
       },
-      "parallax": { "type": "bool", "text": "Mouse parallax", "value": true },
-      "grain": { "type": "bool", "text": "Film grain", "value": true }
+      "swirl":     { "type": "slider", "text": "Swirliness",   "value": 60, "min": 0, "max": 100, "fraction": false },
+      "fade":      { "type": "slider", "text": "Fade speed",   "value": 24, "min": 0, "max": 100, "fraction": false },
+      "splatSize": { "type": "slider", "text": "Brush size",   "value": 33, "min": 0, "max": 100, "fraction": false },
+      "glow":      { "type": "slider", "text": "Glow (bloom)", "value": 50, "min": 0, "max": 100, "fraction": false },
+      "quality": {
+        "type": "combo",
+        "text": "Quality",
+        "value": "1",
+        "options": [
+          { "label": "Low (best performance)", "value": "0" },
+          { "label": "Medium", "value": "1" },
+          { "label": "High (best looks)", "value": "2" }
+        ]
+      },
+      "auto":    { "type": "bool", "text": "Self-stir when idle", "value": true },
+      "audio":   { "type": "bool", "text": "React to music",      "value": true },
+      "shading": { "type": "bool", "text": "3D shading",          "value": true }
     }
   }
 }

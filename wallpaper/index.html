@@ -3,405 +3,742 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Living Scenery — interactive scenic wallpaper</title>
+<title>Liquid Light — GPU fluid live wallpaper</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #0a0e14; }
-  .layer { position: fixed; inset: 0; pointer-events: none; }
-  /* photo backdrops (two for smooth crossfade) */
-  .bg { background-size: cover; background-position: center; background-repeat: no-repeat;
-        will-change: transform, opacity; transition: opacity 1.1s ease;
-        transform: scale(1.08); opacity: 0; }
-  #grade    { mix-blend-mode: soft-light; opacity: 0; transition: background 2s, opacity 2s; }
-  #vignette { background: radial-gradient(120% 110% at 50% 46%,
-                rgba(0,0,0,0) 42%, rgba(0,0,0,0.28) 78%, rgba(0,0,0,0.6) 100%); }
-  #fx { z-index: 4; }
-  #grain { z-index: 5; mix-blend-mode: overlay; opacity: 0.05; }
-  #bgA { z-index: 0; } #bgB { z-index: 0; }
-  #grade { z-index: 2; } #vignette { z-index: 3; }
-  #status { position: fixed; left: 16px; bottom: 14px; z-index: 9;
-    font: 12px ui-sans-serif, system-ui, sans-serif; color: rgba(255,255,255,.55);
-    text-shadow: 0 1px 3px rgba(0,0,0,.6); pointer-events: none; opacity: 0;
-    transition: opacity .4s; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  #err { position: fixed; inset: 0; display: none; place-items: center; color: #cdd6ff;
+    font: 15px/1.6 ui-sans-serif, system-ui, sans-serif; text-align: center; padding: 24px; }
 </style>
 </head>
 <body>
-<div id="bgA" class="layer bg"></div>
-<div id="bgB" class="layer bg"></div>
-<div id="grade" class="layer"></div>
-<div id="vignette" class="layer"></div>
-<canvas id="fx" class="layer"></canvas>
-<div id="grain" class="layer"></div>
-<div id="status"></div>
+<canvas id="c"></canvas>
+<div id="err">This wallpaper needs WebGL.<br>Enable hardware acceleration / GPU access and reload.</div>
 <script>
 "use strict";
 /* ──────────────────────────────────────────────────────────────────────────
-   LIVING SCENERY  ·  interactive scenic live wallpaper
+   LIQUID LIGHT  ·  real-time GPU fluid simulation wallpaper
    ----------------------------------------------------------------------------
-   A beautiful photo that comes alive: slow cinematic drift + mouse parallax,
-   with layered, interactive weather painted on top — snow, rain, storms with
-   lightning, drifting fog, sun god-rays, water sparkle, fireflies, petals —
-   plus time-of-day colour grading, vignette and film grain for a cinematic feel.
-   Use a built-in scenic photo, your own image (photos/custom.jpg or a URL), or a
-   hand-drawn procedural mountain scene as an always-works fallback.
-   Pure HTML/CSS/Canvas, single file, zero dependencies.
+   A genuine fluid solver on the GPU — semi-Lagrangian advection, vorticity
+   confinement and a Jacobi pressure-projection step (incompressible
+   Navier–Stokes) — rendered with HDR bloom for a luminous glow. Move the mouse
+   to push real, swirling fluid; it also stirs itself so it's gorgeous untouched,
+   shifts colour over time, and can react to music.
+   WebGL2 with WebGL1 + half-float fallback. Single file, zero dependencies.
+   Fluid technique after Stam's "Stable Fluids"; pipeline in the spirit of
+   well-known open-source WebGL fluid demos. MIT.
    ────────────────────────────────────────────────────────────────────────── */
 
-/* ── Settings (live-editable via Lively / Wallpaper Engine) ─────────────── */
-const cfg = {
-  scene: 1,           // 0 Procedural 1..N built-in photos, then My Photo, Custom URL
-  customUrl: '',
-  weather: 1,         // 0 None 1 Snow 2 Rain 3 Storm 4 Fog 5 Sun rays 6 Sparkle 7 Fireflies 8 Petals
-  intensity: 60,      // 0..100
-  timeOfDay: 0,       // 0 Auto 1 Dawn 2 Day 3 Golden 4 Dusk 5 Night
-  parallax: true,
-  grain: true,
+const canvas = document.getElementById('c');
+
+/* ── Tunables (live-editable via Lively / Wallpaper Engine) ─────────────── */
+const config = {
+  SIM_RESOLUTION: 128,        // velocity grid
+  DYE_RESOLUTION: 1024,       // colour grid (visual detail)
+  DENSITY_DISSIPATION: 1.1,   // how fast colour fades
+  VELOCITY_DISSIPATION: 0.25, // how fast motion settles
+  PRESSURE: 0.8,
+  PRESSURE_ITERATIONS: 20,
+  CURL: 30,                   // swirliness (vorticity)
+  SPLAT_RADIUS: 0.25,
+  SPLAT_FORCE: 6000,
+  SHADING: true,
+  COLOR_UPDATE_SPEED: 10,
+  BLOOM: true,
+  BLOOM_ITERATIONS: 8,
+  BLOOM_RESOLUTION: 256,
+  BLOOM_INTENSITY: 0.8,
+  BLOOM_THRESHOLD: 0.6,
+  BLOOM_SOFT_KNEE: 0.7,
+  THEME: 0,                   // 0 Spectrum 1 Fire 2 Ocean 3 Neon 4 Pastel 5 Mono
+  AUTO: true,                 // self-stirring when idle
+  AUDIO: true,                // react to music if host provides it
 };
 
-/* ── Scene catalogue ────────────────────────────────────────────────────── */
-// Photos stream from Lorem Picsum's stable, hot-link-friendly CDN at runtime
-// (on YOUR PC, which has internet). If a fetch fails we fall back to a crafted
-// procedural mountain scene so the wallpaper is never broken or blank.
-const PIC = id => `https://picsum.photos/id/${id}/1920/1080`;
-const SCENES = [
-  { name: 'Procedural Peaks', kind: 'proc' },
-  { name: 'Mountain Lake',    kind: 'url', url: PIC(1018) },
-  { name: 'River Canyon',     kind: 'url', url: PIC(1015) },
-  { name: 'Canyon Valley',    kind: 'url', url: PIC(1016) },
-  { name: 'Waterfall',        kind: 'url', url: PIC(1039) },
-  { name: 'Forest',           kind: 'url', url: PIC(29)   },
-  { name: 'Seascape',         kind: 'url', url: PIC(1043) },
-  { name: 'My Photo',         kind: 'url', url: 'photos/custom.jpg' },
-  { name: 'Custom URL',       kind: 'custom' },
-];
-
-/* ── Canvas sizing ──────────────────────────────────────────────────────── */
-const fx = document.getElementById('fx');
-const ctx = fx.getContext('2d');
-let W = 0, H = 0, DPR = 1;
-function resize() {
-  DPR = Math.min(window.devicePixelRatio || 1, 1.5);
-  W = window.innerWidth; H = window.innerHeight;
-  fx.width = Math.floor(W * DPR); fx.height = Math.floor(H * DPR);
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  buildWeather();
+/* ── WebGL context + capabilities ───────────────────────────────────────── */
+function getWebGLContext(canvas) {
+  const params = { alpha: true, depth: false, stencil: false, antialias: false, preserveDrawingBuffer: false };
+  let gl = canvas.getContext('webgl2', params);
+  const isWebGL2 = !!gl;
+  if (!isWebGL2) gl = canvas.getContext('webgl', params) || canvas.getContext('experimental-webgl', params);
+  if (!gl) return null;
+  let halfFloat, supportLinearFiltering;
+  if (isWebGL2) { gl.getExtension('EXT_color_buffer_float'); supportLinearFiltering = gl.getExtension('OES_texture_float_linear'); }
+  else { halfFloat = gl.getExtension('OES_texture_half_float'); supportLinearFiltering = gl.getExtension('OES_texture_half_float_linear'); }
+  gl.clearColor(0, 0, 0, 1);
+  const halfFloatTexType = isWebGL2 ? gl.HALF_FLOAT : (halfFloat && halfFloat.HALF_FLOAT_OES);
+  let formatRGBA, formatRG, formatR;
+  if (isWebGL2) {
+    formatRGBA = getSupportedFormat(gl, gl.RGBA16F, gl.RGBA, halfFloatTexType);
+    formatRG   = getSupportedFormat(gl, gl.RG16F,   gl.RG,   halfFloatTexType);
+    formatR    = getSupportedFormat(gl, gl.R16F,    gl.RED,  halfFloatTexType);
+  } else {
+    formatRGBA = getSupportedFormat(gl, gl.RGBA, gl.RGBA, halfFloatTexType);
+    formatRG   = getSupportedFormat(gl, gl.RGBA, gl.RGBA, halfFloatTexType);
+    formatR    = getSupportedFormat(gl, gl.RGBA, gl.RGBA, halfFloatTexType);
+  }
+  return { gl, isWebGL2, ext: { formatRGBA, formatRG, formatR, halfFloatTexType, supportLinearFiltering: !!supportLinearFiltering } };
 }
-window.addEventListener('resize', resize);
-
-/* ── Tiny seeded value-noise (for procedural ridges + organic motion) ───── */
-const PERM = new Uint8Array(512);
-(function seed(s){ const p=new Uint8Array(256); for(let i=0;i<256;i++)p[i]=i;
-  s=(s>>>0)||1; const r=()=>{s^=s<<13;s^=s>>>17;s^=s<<5;return(s>>>0)/4294967296;};
-  for(let i=255;i>0;i--){const j=(r()*(i+1))|0;[p[i],p[j]]=[p[j],p[i]];}
-  for(let i=0;i<512;i++)PERM[i]=p[i&255]; })(7331);
-const fade=t=>t*t*t*(t*(t*6-15)+10), lerp=(a,b,t)=>a+(b-a)*t;
-function noise1(x){const X=Math.floor(x)&255;x-=Math.floor(x);const u=fade(x);
-  const a=(PERM[X]/255)*2-1,b=(PERM[X+1]/255)*2-1;return lerp(a,b,u);}
-const rand=(a,b)=>a+Math.random()*(b-a);
-
-/* ── Procedural fallback scene (rendered once → data URL) ───────────────── */
-function renderProcedural() {
-  const c = document.createElement('canvas'); c.width = 1600; c.height = 900;
-  const g = c.getContext('2d'); const w = c.width, h = c.height;
-  // sky
-  const sky = g.createLinearGradient(0, 0, 0, h);
-  sky.addColorStop(0, '#1b2a52'); sky.addColorStop(0.45, '#3a4f86');
-  sky.addColorStop(0.7, '#8a7fb0'); sky.addColorStop(1, '#e7a978');
-  g.fillStyle = sky; g.fillRect(0, 0, w, h);
-  // sun
-  const sx = w * 0.74, sy = h * 0.42;
-  const sg = g.createRadialGradient(sx, sy, 0, sx, sy, 260);
-  sg.addColorStop(0, 'rgba(255,240,210,0.95)'); sg.addColorStop(0.3, 'rgba(255,210,150,0.6)');
-  sg.addColorStop(1, 'rgba(255,210,150,0)');
-  g.fillStyle = sg; g.beginPath(); g.arc(sx, sy, 260, 0, 6.2832); g.fill();
-  g.fillStyle = 'rgba(255,248,225,0.95)'; g.beginPath(); g.arc(sx, sy, 46, 0, 6.2832); g.fill();
-  // layered ridges
-  const ridge = [['#5a6a9a', 0.62, 0.10], ['#46527e', 0.70, 0.16], ['#333c63', 0.79, 0.22], ['#222843', 0.88, 0.30]];
-  for (let L = 0; L < ridge.length; L++) {
-    const [col, base, amp] = ridge[L];
-    g.fillStyle = col; g.beginPath(); g.moveTo(0, h);
-    for (let x = 0; x <= w; x += 8) {
-      const n = noise1(x * 0.0016 * (1 + L * 0.4) + L * 30) * 0.5
-              + noise1(x * 0.006 + L * 10) * 0.5;
-      g.lineTo(x, h * base + n * h * amp);
+function getSupportedFormat(gl, internalFormat, format, type) {
+  if (!supportRenderTextureFormat(gl, internalFormat, format, type)) {
+    switch (internalFormat) {
+      case gl.R16F:  return getSupportedFormat(gl, gl.RG16F, gl.RG, type);
+      case gl.RG16F: return getSupportedFormat(gl, gl.RGBA16F, gl.RGBA, type);
+      default: return null;
     }
-    g.lineTo(w, h); g.closePath(); g.fill();
   }
-  // water + reflection at the very bottom
-  const wy = h * 0.9;
-  const wg = g.createLinearGradient(0, wy, 0, h);
-  wg.addColorStop(0, 'rgba(60,80,120,0.7)'); wg.addColorStop(1, 'rgba(20,28,50,0.95)');
-  g.fillStyle = wg; g.fillRect(0, wy, w, h - wy);
-  g.globalAlpha = 0.25; g.fillStyle = '#fff';
-  for (let i = 0; i < 60; i++) { const y = wy + Math.random() * (h - wy);
-    g.fillRect(Math.random() * w, y, rand(20, 90), 1); }
-  g.globalAlpha = 1;
-  return c.toDataURL('image/jpeg', 0.86);
+  return { internalFormat, format };
+}
+function supportRenderTextureFormat(gl, internalFormat, format, type) {
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, 4, 4, 0, format, type, null);
+  const fbo = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+  return gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
 }
 
-/* ── Scene loading + crossfade ──────────────────────────────────────────── */
-const bgA = document.getElementById('bgA'), bgB = document.getElementById('bgB');
-let bgFront = bgA, bgBack = bgB;
-const statusEl = document.getElementById('status');
-let procURL = null;
-function showStatus(t) {
-  statusEl.textContent = t; statusEl.style.opacity = '1';
-  clearTimeout(showStatus._t); showStatus._t = setTimeout(() => statusEl.style.opacity = '0', 2200);
+const ctxObj = getWebGLContext(canvas);
+if (!ctxObj || !ctxObj.ext.formatRGBA) {
+  document.getElementById('err').style.display = 'grid';
+  throw new Error('WebGL not available');
 }
-function applyBg(url) {
-  bgBack.style.backgroundImage = `url("${url}")`;
-  bgBack.style.opacity = '1';
-  bgFront.style.opacity = '0';
-  [bgFront, bgBack] = [bgBack, bgFront];
+const gl = ctxObj.gl, ext = ctxObj.ext;
+if (!ext.supportLinearFiltering) { config.DYE_RESOLUTION = 512; config.SHADING = false; }
+
+/* ── Shader plumbing ────────────────────────────────────────────────────── */
+function compileShader(type, source, keywords) {
+  source = addKeywords(source, keywords);
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source); gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(shader));
+  return shader;
 }
-function loadScene(idx) {
-  const s = SCENES[idx] || SCENES[0];
-  if (s.kind === 'proc') {
-    if (!procURL) procURL = renderProcedural();
-    applyBg(procURL); showStatus(s.name); return;
+function addKeywords(source, keywords) {
+  if (!keywords) return source;
+  let prefix = ''; keywords.forEach(k => prefix += '#define ' + k + '\n');
+  return prefix + source;
+}
+function createProgram(vs, fs) {
+  const program = gl.createProgram();
+  gl.attachShader(program, vs); gl.attachShader(program, fs);
+  gl.bindAttribLocation(program, 0, 'aPosition'); // guarantee the quad attrib is slot 0
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(program));
+  return program;
+}
+function getUniforms(program) {
+  const uniforms = {}; const count = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
+  for (let i = 0; i < count; i++) { const name = gl.getActiveUniform(program, i).name; uniforms[name] = gl.getUniformLocation(program, name); }
+  return uniforms;
+}
+class Program {
+  constructor(vs, fs) { this.program = createProgram(vs, fs); this.uniforms = getUniforms(this.program); }
+  bind() { gl.useProgram(this.program); }
+}
+// Display program supports recompiling with keyword variants (SHADING / BLOOM)
+class Material {
+  constructor(vs, fsSource) { this.vs = vs; this.fsSource = fsSource; this.programs = {}; this.active = null; this.uniforms = {}; }
+  setKeywords(keywords) {
+    let hash = 0; for (const k of keywords) hash += hashCode(k);
+    let program = this.programs[hash];
+    if (!program) { const fs = compileShader(gl.FRAGMENT_SHADER, this.fsSource, keywords);
+      program = createProgram(this.vs, fs); this.programs[hash] = program; }
+    if (program === this.active) return;
+    this.uniforms = getUniforms(program); this.active = program;
   }
-  let url = s.kind === 'custom' ? (cfg.customUrl || '').trim() : s.url;
-  if (!url) { if (!procURL) procURL = renderProcedural(); applyBg(procURL);
-    showStatus('Set a Custom URL in settings'); return; }
-  showStatus('Loading ' + s.name + '…');
-  const img = new Image();
-  img.onload = () => { applyBg(url); showStatus(s.name); };
-  img.onerror = () => { if (!procURL) procURL = renderProcedural(); applyBg(procURL);
-    showStatus(s.name + ' unavailable — showing Procedural Peaks'); };
-  img.src = url;
+  bind() { gl.useProgram(this.active); }
 }
+function hashCode(s) { let h = 0; for (let i = 0; i < s.length; i++) { h = (h << 5) - h + s.charCodeAt(i); h |= 0; } return h; }
 
-/* ── Mouse / wind / interaction ─────────────────────────────────────────── */
-const mouse = { x: 0.5, y: 0.5, tx: 0.5, ty: 0.5, active: false };
-let windX = 0.3, gust = 0;
-let ripples = [];
-function onMove(e){ const s=e.touches?e.touches[0]:e;
-  mouse.tx=s.clientX/window.innerWidth; mouse.ty=s.clientY/window.innerHeight; mouse.active=true; }
-window.addEventListener('mousemove', onMove);
-function burst(e){ onMove(e); gust = 3.2 * (mouse.tx < 0.5 ? -1 : 1);
-  ripples.push({ x: mouse.tx * W, y: mouse.ty * H, r: 0, life: 1 }); }
-window.addEventListener('mousedown', burst);
-window.addEventListener('touchstart', burst);
+/* ── Shaders ────────────────────────────────────────────────────────────── */
+const baseVertex = compileShader(gl.VERTEX_SHADER, `
+  precision highp float;
+  attribute vec2 aPosition; varying vec2 vUv, vL, vR, vT, vB;
+  uniform vec2 texelSize;
+  void main () {
+    vUv = aPosition * 0.5 + 0.5;
+    vL = vUv - vec2(texelSize.x, 0.0); vR = vUv + vec2(texelSize.x, 0.0);
+    vT = vUv + vec2(0.0, texelSize.y); vB = vUv - vec2(0.0, texelSize.y);
+    gl_Position = vec4(aPosition, 0.0, 1.0);
+  }`);
 
-/* ── Time-of-day colour grade ───────────────────────────────────────────── */
-function gradeForHour(h){
-  if (h < 5.5)  return { c:'rgb(18,34,78)',  b:'multiply',  o:0.6 , dark:0.5 };
-  if (h < 8)    return { c:'rgb(255,150,95)', b:'soft-light', o:0.38, dark:0.18 };
-  if (h < 11)   return { c:'rgb(200,220,255)',b:'soft-light', o:0.12, dark:0.05 };
-  if (h < 16)   return { c:'rgb(190,215,255)',b:'soft-light', o:0.10, dark:0.04 };
-  if (h < 18.5) return { c:'rgb(255,170,80)', b:'soft-light', o:0.42, dark:0.12 };
-  if (h < 20.5) return { c:'rgb(120,90,170)', b:'soft-light', o:0.42, dark:0.22 };
-  return { c:'rgb(18,34,78)', b:'multiply', o:0.6, dark:0.5 };
-}
-const TOD = [ null,
-  { c:'rgb(255,150,95)', b:'soft-light', o:0.38, dark:0.18 },   // dawn
-  { c:'rgb(195,218,255)',b:'soft-light', o:0.10, dark:0.04 },   // day
-  { c:'rgb(255,170,80)', b:'soft-light', o:0.42, dark:0.12 },   // golden
-  { c:'rgb(120,90,170)', b:'soft-light', o:0.42, dark:0.22 },   // dusk
-  { c:'rgb(18,34,78)',   b:'multiply',   o:0.6 , dark:0.5  } ]; // night
-const gradeEl = document.getElementById('grade');
-const vigEl = document.getElementById('vignette');
-let curDark = 0.1, nightMix = 0;
-function applyGrade(){
-  const g = cfg.timeOfDay === 0 ? gradeForHour(new Date().getHours() + new Date().getMinutes()/60)
-                                : TOD[cfg.timeOfDay];
-  gradeEl.style.background = g.c; gradeEl.style.mixBlendMode = g.b; gradeEl.style.opacity = g.o;
-  curDark = g.dark; nightMix = (g.b === 'multiply') ? 1 : 0;
-  vigEl.style.opacity = String(0.85 + g.dark * 0.6);
-}
+const copyShader = compileShader(gl.FRAGMENT_SHADER, `
+  precision mediump float; precision mediump sampler2D;
+  varying vec2 vUv; uniform sampler2D uTexture;
+  void main () { gl_FragColor = texture2D(uTexture, vUv); }`);
 
-/* ── Film grain overlay (CSS, animated offset) ──────────────────────────── */
-const grainEl = document.getElementById('grain');
-(function makeGrain(){
-  const n = document.createElement('canvas'); n.width = n.height = 96;
-  const g = n.getContext('2d'); const d = g.createImageData(96, 96);
-  for (let i = 0; i < d.data.length; i += 4){ const v = (Math.random() * 255) | 0;
-    d.data[i] = d.data[i+1] = d.data[i+2] = v; d.data[i+3] = 255; }
-  g.putImageData(d, 0, 0);
-  grainEl.style.backgroundImage = `url("${n.toDataURL()}")`;
-  grainEl.style.backgroundRepeat = 'repeat';
+const clearShader = compileShader(gl.FRAGMENT_SHADER, `
+  precision mediump float; precision mediump sampler2D;
+  varying vec2 vUv; uniform sampler2D uTexture; uniform float value;
+  void main () { gl_FragColor = value * texture2D(uTexture, vUv); }`);
+
+const displayShaderSource = `
+  precision highp float; precision highp sampler2D;
+  varying vec2 vUv, vL, vR, vT, vB;
+  uniform sampler2D uTexture; uniform sampler2D uBloom; uniform vec2 texelSize;
+  uniform float uBloomIntensity;
+  void main () {
+    vec3 c = texture2D(uTexture, vUv).rgb;
+  #ifdef SHADING
+    vec3 lc = texture2D(uTexture, vL).rgb; vec3 rc = texture2D(uTexture, vR).rgb;
+    vec3 tc = texture2D(uTexture, vT).rgb; vec3 bc = texture2D(uTexture, vB).rgb;
+    float dx = length(rc) - length(lc); float dy = length(tc) - length(bc);
+    vec3 n = normalize(vec3(dx, dy, length(texelSize)));
+    float diffuse = clamp(dot(n, vec3(0.0, 0.0, 1.0)) + 0.7, 0.7, 1.0);
+    c *= diffuse;
+  #endif
+  #ifdef BLOOM
+    c += texture2D(uBloom, vUv).rgb * uBloomIntensity;
+  #endif
+    float a = max(c.r, max(c.g, c.b));
+    gl_FragColor = vec4(c, 1.0);
+  }`;
+
+const splatShader = compileShader(gl.FRAGMENT_SHADER, `
+  precision highp float; precision highp sampler2D;
+  varying vec2 vUv; uniform sampler2D uTarget; uniform float aspectRatio;
+  uniform vec3 color; uniform vec2 point; uniform float radius;
+  void main () {
+    vec2 p = vUv - point.xy; p.x *= aspectRatio;
+    vec3 splat = exp(-dot(p, p) / radius) * color;
+    vec3 base = texture2D(uTarget, vUv).xyz;
+    gl_FragColor = vec4(base + splat, 1.0);
+  }`);
+
+const advectionShader = compileShader(gl.FRAGMENT_SHADER, `
+  precision highp float; precision highp sampler2D;
+  varying vec2 vUv; uniform sampler2D uVelocity; uniform sampler2D uSource;
+  uniform vec2 texelSize; uniform vec2 dyeTexelSize; uniform float dt; uniform float dissipation;
+  vec4 bilerp (sampler2D sam, vec2 uv, vec2 tsize) {
+    vec2 st = uv / tsize - 0.5; vec2 iuv = floor(st); vec2 fuv = fract(st);
+    vec4 a = texture2D(sam, (iuv + vec2(0.5, 0.5)) * tsize);
+    vec4 b = texture2D(sam, (iuv + vec2(1.5, 0.5)) * tsize);
+    vec4 c = texture2D(sam, (iuv + vec2(0.5, 1.5)) * tsize);
+    vec4 d = texture2D(sam, (iuv + vec2(1.5, 1.5)) * tsize);
+    return mix(mix(a, b, fuv.x), mix(c, d, fuv.x), fuv.y);
+  }
+  void main () {
+  #ifdef MANUAL_FILTERING
+    vec2 coord = vUv - dt * bilerp(uVelocity, vUv, texelSize).xy * texelSize;
+    vec4 result = bilerp(uSource, coord, dyeTexelSize);
+  #else
+    vec2 coord = vUv - dt * texture2D(uVelocity, vUv).xy * texelSize;
+    vec4 result = texture2D(uSource, coord);
+  #endif
+    float decay = 1.0 + dissipation * dt;
+    gl_FragColor = result / decay;
+  }`, ext.supportLinearFiltering ? null : ['MANUAL_FILTERING']);
+
+const divergenceShader = compileShader(gl.FRAGMENT_SHADER, `
+  precision mediump float; precision mediump sampler2D;
+  varying vec2 vUv, vL, vR, vT, vB; uniform sampler2D uVelocity;
+  void main () {
+    float L = texture2D(uVelocity, vL).x; float R = texture2D(uVelocity, vR).x;
+    float T = texture2D(uVelocity, vT).y; float B = texture2D(uVelocity, vB).y;
+    vec2 C = texture2D(uVelocity, vUv).xy;
+    if (vL.x < 0.0) L = -C.x; if (vR.x > 1.0) R = -C.x;
+    if (vT.y > 1.0) T = -C.y; if (vB.y < 0.0) B = -C.y;
+    gl_FragColor = vec4(0.5 * (R - L + T - B), 0.0, 0.0, 1.0);
+  }`);
+
+const curlShader = compileShader(gl.FRAGMENT_SHADER, `
+  precision mediump float; precision mediump sampler2D;
+  varying vec2 vUv, vL, vR, vT, vB; uniform sampler2D uVelocity;
+  void main () {
+    float L = texture2D(uVelocity, vL).y; float R = texture2D(uVelocity, vR).y;
+    float T = texture2D(uVelocity, vT).x; float B = texture2D(uVelocity, vB).x;
+    gl_FragColor = vec4(0.5 * (R - L - T + B), 0.0, 0.0, 1.0);
+  }`);
+
+const vorticityShader = compileShader(gl.FRAGMENT_SHADER, `
+  precision highp float; precision highp sampler2D;
+  varying vec2 vUv, vL, vR, vT, vB;
+  uniform sampler2D uVelocity; uniform sampler2D uCurl; uniform float curl; uniform float dt;
+  void main () {
+    float L = texture2D(uCurl, vL).x; float R = texture2D(uCurl, vR).x;
+    float T = texture2D(uCurl, vT).x; float B = texture2D(uCurl, vB).x;
+    float C = texture2D(uCurl, vUv).x;
+    vec2 force = 0.5 * vec2(abs(T) - abs(B), abs(R) - abs(L));
+    force /= length(force) + 0.0001; force *= curl * C; force.y *= -1.0;
+    vec2 vel = texture2D(uVelocity, vUv).xy;
+    vel += force * dt; vel = min(max(vel, -1000.0), 1000.0);
+    gl_FragColor = vec4(vel, 0.0, 1.0);
+  }`);
+
+const pressureShader = compileShader(gl.FRAGMENT_SHADER, `
+  precision mediump float; precision mediump sampler2D;
+  varying vec2 vUv, vL, vR, vT, vB; uniform sampler2D uPressure; uniform sampler2D uDivergence;
+  void main () {
+    float L = texture2D(uPressure, vL).x; float R = texture2D(uPressure, vR).x;
+    float T = texture2D(uPressure, vT).x; float B = texture2D(uPressure, vB).x;
+    float divergence = texture2D(uDivergence, vUv).x;
+    gl_FragColor = vec4((L + R + B + T - divergence) * 0.25, 0.0, 0.0, 1.0);
+  }`);
+
+const gradientSubtractShader = compileShader(gl.FRAGMENT_SHADER, `
+  precision mediump float; precision mediump sampler2D;
+  varying vec2 vUv, vL, vR, vT, vB; uniform sampler2D uPressure; uniform sampler2D uVelocity;
+  void main () {
+    float L = texture2D(uPressure, vL).x; float R = texture2D(uPressure, vR).x;
+    float T = texture2D(uPressure, vT).x; float B = texture2D(uPressure, vB).x;
+    vec2 velocity = texture2D(uVelocity, vUv).xy;
+    velocity.xy -= vec2(R - L, T - B);
+    gl_FragColor = vec4(velocity, 0.0, 1.0);
+  }`);
+
+const bloomPrefilterShader = compileShader(gl.FRAGMENT_SHADER, `
+  precision mediump float; precision mediump sampler2D;
+  varying vec2 vUv; uniform sampler2D uTexture; uniform vec3 curve; uniform float threshold;
+  void main () {
+    vec3 c = texture2D(uTexture, vUv).rgb;
+    float br = max(c.r, max(c.g, c.b));
+    float rq = clamp(br - curve.x, 0.0, curve.y); rq = curve.z * rq * rq;
+    c *= max(rq, br - threshold) / max(br, 0.0001);
+    gl_FragColor = vec4(c, 1.0);
+  }`);
+
+const bloomBlurShader = compileShader(gl.FRAGMENT_SHADER, `
+  precision mediump float; precision mediump sampler2D;
+  varying vec2 vL, vR, vT, vB; uniform sampler2D uTexture;
+  void main () {
+    vec4 sum = texture2D(uTexture, vL) + texture2D(uTexture, vR) + texture2D(uTexture, vT) + texture2D(uTexture, vB);
+    gl_FragColor = sum * 0.25;
+  }`);
+
+const bloomFinalShader = compileShader(gl.FRAGMENT_SHADER, `
+  precision mediump float; precision mediump sampler2D;
+  varying vec2 vL, vR, vT, vB; uniform sampler2D uTexture; uniform float intensity;
+  void main () {
+    vec4 sum = texture2D(uTexture, vL) + texture2D(uTexture, vR) + texture2D(uTexture, vT) + texture2D(uTexture, vB);
+    gl_FragColor = sum * 0.25 * intensity;
+  }`);
+
+/* ── Programs ───────────────────────────────────────────────────────────── */
+const copyProgram = new Program(baseVertex, copyShader);
+const clearProgram = new Program(baseVertex, clearShader);
+const splatProgram = new Program(baseVertex, splatShader);
+const advectionProgram = new Program(baseVertex, advectionShader);
+const divergenceProgram = new Program(baseVertex, divergenceShader);
+const curlProgram = new Program(baseVertex, curlShader);
+const vorticityProgram = new Program(baseVertex, vorticityShader);
+const pressureProgram = new Program(baseVertex, pressureShader);
+const gradienSubtractProgram = new Program(baseVertex, gradientSubtractShader);
+const bloomPrefilterProgram = new Program(baseVertex, bloomPrefilterShader);
+const bloomBlurProgram = new Program(baseVertex, bloomBlurShader);
+const bloomFinalProgram = new Program(baseVertex, bloomFinalShader);
+const displayMaterial = new Material(baseVertex, displayShaderSource);
+
+/* ── Fullscreen quad blit ───────────────────────────────────────────────── */
+const blit = (() => {
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, -1, 1, 1, 1, 1, -1]), gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer());
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([0, 1, 2, 0, 2, 3]), gl.STATIC_DRAW);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(0);
+  return (target, clear = false) => {
+    if (target == null) { gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight); gl.bindFramebuffer(gl.FRAMEBUFFER, null); }
+    else { gl.viewport(0, 0, target.width, target.height); gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo); }
+    if (clear) { gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); }
+    gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+  };
 })();
 
-/* ── Weather particle systems ───────────────────────────────────────────── */
-let parts = [];
-let fogSprite = null, glowSprite = null;
-function makeSprite(stops){ const c=document.createElement('canvas'); c.width=c.height=128;
-  const g=c.getContext('2d'); const rg=g.createRadialGradient(64,64,0,64,64,64);
-  stops.forEach(s=>rg.addColorStop(s[0],s[1])); g.fillStyle=rg; g.fillRect(0,0,128,128); return c; }
-function ensureSprites(){
-  if (!fogSprite) fogSprite = makeSprite([[0,'rgba(255,255,255,0.5)'],[0.6,'rgba(255,255,255,0.18)'],[1,'rgba(255,255,255,0)']]);
-  if (!glowSprite) glowSprite = makeSprite([[0,'rgba(255,255,255,1)'],[0.4,'rgba(255,255,255,0.5)'],[1,'rgba(255,255,255,0)']]);
+/* ── Framebuffers ───────────────────────────────────────────────────────── */
+let dye, velocity, divergence, curl, pressure, bloom;
+let bloomFramebuffers = [];
+
+function createFBO(w, h, internalFormat, format, type, param) {
+  gl.activeTexture(gl.TEXTURE0);
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, param);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, param);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, w, h, 0, format, type, null);
+  const fbo = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+  gl.viewport(0, 0, w, h); gl.clear(gl.COLOR_BUFFER_BIT);
+  return { texture, fbo, width: w, height: h, texelSizeX: 1 / w, texelSizeY: 1 / h,
+    attach(id) { gl.activeTexture(gl.TEXTURE0 + id); gl.bindTexture(gl.TEXTURE_2D, texture); return id; } };
 }
-function count(base){ return Math.round(base * (0.25 + cfg.intensity / 100 * 1.4)); }
-function buildWeather(){
-  ensureSprites(); parts = [];
-  const wx = W, hy = H, area = wx * hy;
-  switch (cfg.weather){
-    case 1: for (let i=0,n=count(area/3200);i<n;i++) parts.push({x:rand(0,wx),y:rand(0,hy),z:Math.random(),r:rand(1,3),sw:rand(8,26),ph:rand(0,6.28),sp:rand(20,55)}); break; // snow
-    case 2: case 3: for (let i=0,n=count(area/2600);i<n;i++) parts.push({x:rand(0,wx),y:rand(0,hy),z:Math.random(),len:rand(10,22),sp:rand(420,720)}); break; // rain/storm
-    case 4: for (let i=0,n=count(18);i<n;i++) parts.push({x:rand(-200,wx),y:rand(hy*0.25,hy),r:rand(180,420),sp:rand(4,16),a:rand(0.04,0.14)}); break; // fog
-    case 6: for (let i=0,n=count(260);i<n;i++) parts.push({x:rand(0,wx),y:rand(hy*0.35,hy),ph:rand(0,6.28),sp:rand(1.5,4),r:rand(0.6,2)}); break; // sparkle
-    case 7: for (let i=0,n=count(48);i<n;i++) parts.push({x:rand(0,wx),y:rand(hy*0.3,hy),vx:rand(-10,10),vy:rand(-8,8),ph:rand(0,6.28),sp:rand(1,2.6)}); break; // fireflies
-    case 8: for (let i=0,n=count(150);i<n;i++) parts.push({x:rand(0,wx),y:rand(0,hy),vx:rand(-6,18),vy:rand(14,34),rot:rand(0,6.28),vr:rand(-2,2),s:rand(5,12),h:rand(330,30)}); break; // petals
+function createDoubleFBO(w, h, internalFormat, format, type, param) {
+  let fbo1 = createFBO(w, h, internalFormat, format, type, param);
+  let fbo2 = createFBO(w, h, internalFormat, format, type, param);
+  return {
+    width: w, height: h, texelSizeX: 1 / w, texelSizeY: 1 / h,
+    get read() { return fbo1; }, set read(v) { fbo1 = v; },
+    get write() { return fbo2; }, set write(v) { fbo2 = v; },
+    swap() { const t = fbo1; fbo1 = fbo2; fbo2 = t; },
+  };
+}
+function resizeFBO(target, w, h, internalFormat, format, type, param) {
+  const newFBO = createFBO(w, h, internalFormat, format, type, param);
+  copyProgram.bind();
+  gl.uniform1i(copyProgram.uniforms.uTexture, target.attach(0));
+  blit(newFBO);
+  return newFBO;
+}
+function resizeDoubleFBO(target, w, h, internalFormat, format, type, param) {
+  if (target.width === w && target.height === h) return target;
+  target.read = resizeFBO(target.read, w, h, internalFormat, format, type, param);
+  target.write = createFBO(w, h, internalFormat, format, type, param);
+  target.width = w; target.height = h; target.texelSizeX = 1 / w; target.texelSizeY = 1 / h;
+  return target;
+}
+function getResolution(resolution) {
+  let aspectRatio = gl.drawingBufferWidth / gl.drawingBufferHeight;
+  if (aspectRatio < 1) aspectRatio = 1 / aspectRatio;
+  const min = Math.round(resolution), max = Math.round(resolution * aspectRatio);
+  return gl.drawingBufferWidth > gl.drawingBufferHeight ? { width: max, height: min } : { width: min, height: max };
+}
+function initFramebuffers() {
+  const simRes = getResolution(config.SIM_RESOLUTION);
+  const dyeRes = getResolution(config.DYE_RESOLUTION);
+  const texType = ext.halfFloatTexType;
+  const rgba = ext.formatRGBA, rg = ext.formatRG, r = ext.formatR;
+  const filtering = ext.supportLinearFiltering ? gl.LINEAR : gl.NEAREST;
+  gl.disable(gl.BLEND);
+
+  dye = dye ? resizeDoubleFBO(dye, dyeRes.width, dyeRes.height, rgba.internalFormat, rgba.format, texType, filtering)
+            : createDoubleFBO(dyeRes.width, dyeRes.height, rgba.internalFormat, rgba.format, texType, filtering);
+  velocity = velocity ? resizeDoubleFBO(velocity, simRes.width, simRes.height, rg.internalFormat, rg.format, texType, filtering)
+                      : createDoubleFBO(simRes.width, simRes.height, rg.internalFormat, rg.format, texType, filtering);
+  divergence = createFBO(simRes.width, simRes.height, r.internalFormat, r.format, texType, gl.NEAREST);
+  curl = createFBO(simRes.width, simRes.height, r.internalFormat, r.format, texType, gl.NEAREST);
+  pressure = createDoubleFBO(simRes.width, simRes.height, r.internalFormat, r.format, texType, gl.NEAREST);
+  initBloomFramebuffers();
+}
+function initBloomFramebuffers() {
+  const res = getResolution(config.BLOOM_RESOLUTION);
+  const texType = ext.halfFloatTexType, rgba = ext.formatRGBA;
+  const filtering = ext.supportLinearFiltering ? gl.LINEAR : gl.NEAREST;
+  bloom = createFBO(res.width, res.height, rgba.internalFormat, rgba.format, texType, filtering);
+  bloomFramebuffers = [];
+  for (let i = 0; i < config.BLOOM_ITERATIONS; i++) {
+    const w = res.width >> (i + 1), h = res.height >> (i + 1);
+    if (w < 2 || h < 2) break;
+    bloomFramebuffers.push(createFBO(w, h, rgba.internalFormat, rgba.format, texType, filtering));
   }
 }
 
-/* ── Lightning (storm) ──────────────────────────────────────────────────── */
-let flash = 0, strikeTimer = rand(2,6), bolt = null;
-function updateLightning(dt){
-  if (cfg.weather !== 3) { flash = 0; bolt = null; return; }
-  strikeTimer -= dt/60;
-  if (strikeTimer <= 0){ strikeTimer = rand(3,8); flash = 1;
-    const x = rand(W*0.2, W*0.8); bolt = [{x, y:0}]; let cx=x, cy=0;
-    while (cy < H*0.6){ cy += rand(20,55); cx += rand(-40,40); bolt.push({x:cx,y:cy}); } }
-  flash *= Math.pow(0.85, dt);
-  if (flash < 0.02) { flash = 0; bolt = null; }
+/* ── Display keyword sync ───────────────────────────────────────────────── */
+function updateKeywords() {
+  const kw = [];
+  if (config.SHADING) kw.push('SHADING');
+  if (config.BLOOM) kw.push('BLOOM');
+  displayMaterial.setKeywords(kw);
 }
 
-/* ── Weather rendering ──────────────────────────────────────────────────── */
-function drawWeather(dt){
-  const wind = windX + gust;
-  switch (cfg.weather){
-    case 1: { // snow
-      ctx.fillStyle = '#fff';
-      for (const p of parts){
-        p.ph += 0.02*dt;
-        p.y += p.sp*(0.4+p.z)*0.016*dt;
-        p.x += (wind*(0.4+p.z) + Math.sin(p.ph)*p.sw*0.02)*dt;
-        if (p.y>H+5){p.y=-5;p.x=rand(0,W);} if(p.x>W+5)p.x=-5; if(p.x<-5)p.x=W+5;
-        ctx.globalAlpha = 0.35+p.z*0.55; const r=p.r*(0.5+p.z);
-        ctx.beginPath(); ctx.arc(p.x,p.y,r,0,6.2832); ctx.fill();
-      } ctx.globalAlpha=1; break; }
-    case 2: case 3: { // rain / storm
-      ctx.strokeStyle='rgba(190,210,235,0.5)'; ctx.lineCap='round';
-      const ang = 0.18*wind; for (const p of parts){
-        const vy=p.sp*(0.5+p.z)*0.016*dt, vx=ang*vy*6;
-        p.y+=vy; p.x+=vx; if(p.y>H+10){p.y=-10;p.x=rand(0,W);} if(p.x>W+20)p.x-=W+40; if(p.x<-20)p.x+=W+40;
-        ctx.globalAlpha=0.25+p.z*0.45; ctx.lineWidth=0.8+p.z*1.0;
-        ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.x-ang*p.len*3,p.y-p.len*(0.6+p.z)); ctx.stroke();
-      } ctx.globalAlpha=1; break; }
-    case 4: { // fog
-      ctx.globalCompositeOperation='source-over';
-      for (const p of parts){ p.x+=p.sp*0.016*dt*(0.6+wind*0.3); if(p.x-p.r>W)p.x=-p.r*2;
-        ctx.globalAlpha=p.a; ctx.drawImage(fogSprite,p.x-p.r,p.y-p.r*0.6,p.r*2,p.r*1.2); }
-      ctx.globalAlpha=1; break; }
-    case 5: drawSunRays(dt); break;
-    case 6: { // sparkle
-      ctx.globalCompositeOperation='lighter';
-      for (const p of parts){ p.ph+=p.sp*0.04*dt; const tw=Math.max(0,Math.sin(p.ph));
-        ctx.globalAlpha=tw*0.9; const r=p.r*(0.6+tw); ctx.drawImage(glowSprite,p.x-r*4,p.y-r*4,r*8,r*8); }
-      ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over'; break; }
-    case 7: { // fireflies
-      ctx.globalCompositeOperation='lighter';
-      for (const p of parts){ p.ph+=p.sp*0.03*dt;
-        p.vx+=rand(-1,1)*dt*0.4+wind*0.05; p.vy+=rand(-1,1)*dt*0.4; p.vx*=0.96; p.vy*=0.96;
-        p.x+=p.vx*0.04*dt; p.y+=p.vy*0.04*dt;
-        if(p.x<0)p.x=W; if(p.x>W)p.x=0; if(p.y<H*0.2)p.vy+=0.5; if(p.y>H)p.vy-=0.5;
-        const tw=0.4+0.6*(Math.sin(p.ph)*0.5+0.5); ctx.globalAlpha=tw*0.85;
-        const r=3; ctx.fillStyle='rgba(255,240,170,1)';
-        ctx.drawImage(glowSprite,p.x-r*4,p.y-r*4,r*8,r*8); }
-      ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over'; break; }
-    case 8: { // petals
-      for (const p of parts){ p.rot+=p.vr*0.02*dt; p.x+=(p.vx+wind*2)*0.04*dt; p.y+=p.vy*0.04*dt;
-        if(p.y>H+10){p.y=-10;p.x=rand(0,W);} if(p.x>W+10)p.x=-10; if(p.x<-10)p.x=W+10;
-        ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot+Math.sin(p.x*0.02)*0.4);
-        ctx.fillStyle=`hsla(${p.h},70%,72%,0.9)`; ctx.beginPath();
-        ctx.ellipse(0,0,p.s,p.s*0.5,0,0,6.2832); ctx.fill(); ctx.restore(); }
-      break; }
+/* ── Colour themes ──────────────────────────────────────────────────────── */
+function HSVtoRGB(h, s, v) {
+  let r, g, b; const i = Math.floor(h * 6), f = h * 6 - i;
+  const p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+  switch (i % 6) {
+    case 0: r = v; g = t; b = p; break; case 1: r = q; g = v; b = p; break;
+    case 2: r = p; g = v; b = t; break; case 3: r = p; g = q; b = v; break;
+    case 4: r = t; g = p; b = v; break; case 5: r = v; g = p; b = q; break;
+  }
+  return { r, g, b };
+}
+function themedColor() {
+  let h, s = 1, v = 1;
+  switch (config.THEME) {
+    case 1: h = 0.02 + Math.random() * 0.10; s = 1; v = 1; break;          // Fire
+    case 2: h = 0.50 + Math.random() * 0.16; s = 0.9; v = 1; break;        // Ocean
+    case 3: h = [0.83, 0.50, 0.33, 0.95][Math.floor(Math.random() * 4)]; s = 1; v = 1; break; // Neon
+    case 4: h = Math.random(); s = 0.45; v = 1; break;                     // Pastel
+    case 5: h = 0.52; s = 0.5 + Math.random() * 0.4; v = 1; break;         // Mono (teal)
+    default: h = Math.random();                                            // Spectrum
+  }
+  const c = HSVtoRGB(h, s, v);
+  c.r *= 0.15; c.g *= 0.15; c.b *= 0.15;
+  return c;
+}
+
+/* ── Pointer / input ────────────────────────────────────────────────────── */
+function Pointer() { this.id = -1; this.down = false; this.moved = false;
+  this.texcoordX = 0; this.texcoordY = 0; this.prevTexcoordX = 0; this.prevTexcoordY = 0;
+  this.deltaX = 0; this.deltaY = 0; this.color = { r: 0.1, g: 0.1, b: 0.1 }; }
+const pointers = [new Pointer()];
+let lastPointerMove = performance.now();
+
+function scaleByPixelRatio(input) { return Math.floor(input * (Math.min(window.devicePixelRatio || 1, 1.5))); }
+function updatePointerMoveData(p, x, y) {
+  p.prevTexcoordX = p.texcoordX; p.prevTexcoordY = p.texcoordY;
+  p.texcoordX = x / canvas.width; p.texcoordY = 1 - y / canvas.height;
+  p.deltaX = correctDeltaX(p.texcoordX - p.prevTexcoordX);
+  p.deltaY = correctDeltaY(p.texcoordY - p.prevTexcoordY);
+  p.moved = Math.abs(p.deltaX) > 0 || Math.abs(p.deltaY) > 0;
+}
+function correctDeltaX(d) { const ar = canvas.width / canvas.height; return ar < 1 ? d * ar : d; }
+function correctDeltaY(d) { const ar = canvas.width / canvas.height; return ar > 1 ? d / ar : d; }
+
+window.addEventListener('mousemove', e => {
+  const p = pointers[0]; const x = scaleByPixelRatio(e.clientX), y = scaleByPixelRatio(e.clientY);
+  if (!p.down) { p.down = true; p.texcoordX = x / canvas.width; p.texcoordY = 1 - y / canvas.height;
+    p.prevTexcoordX = p.texcoordX; p.prevTexcoordY = p.texcoordY; }
+  updatePointerMoveData(p, x, y);
+  if (!p.color._locked) p.color = themedColor();
+  lastPointerMove = performance.now();
+});
+window.addEventListener('mousedown', () => { pointers[0].color = themedColor(); });
+window.addEventListener('touchstart', e => { const t = e.targetTouches[0]; const p = pointers[0];
+  const x = scaleByPixelRatio(t.clientX), y = scaleByPixelRatio(t.clientY);
+  p.down = true; p.texcoordX = x / canvas.width; p.texcoordY = 1 - y / canvas.height;
+  p.prevTexcoordX = p.texcoordX; p.prevTexcoordY = p.texcoordY; p.color = themedColor(); }, { passive: true });
+window.addEventListener('touchmove', e => { const t = e.targetTouches[0]; const p = pointers[0];
+  updatePointerMoveData(p, scaleByPixelRatio(t.clientX), scaleByPixelRatio(t.clientY));
+  lastPointerMove = performance.now(); }, { passive: true });
+
+/* ── Splats ─────────────────────────────────────────────────────────────── */
+function correctRadius(radius) { const ar = canvas.width / canvas.height; return ar > 1 ? radius * ar : radius; }
+function splat(x, y, dx, dy, color) {
+  splatProgram.bind();
+  gl.uniform1i(splatProgram.uniforms.uTarget, velocity.read.attach(0));
+  gl.uniform1f(splatProgram.uniforms.aspectRatio, canvas.width / canvas.height);
+  gl.uniform2f(splatProgram.uniforms.point, x, y);
+  gl.uniform3f(splatProgram.uniforms.color, dx, dy, 0);
+  gl.uniform1f(splatProgram.uniforms.radius, correctRadius(config.SPLAT_RADIUS / 100));
+  blit(velocity.write); velocity.swap();
+  gl.uniform1i(splatProgram.uniforms.uTarget, dye.read.attach(0));
+  gl.uniform3f(splatProgram.uniforms.color, color.r, color.g, color.b);
+  blit(dye.write); dye.swap();
+}
+function splatPointer(p) {
+  splat(p.texcoordX, p.texcoordY, p.deltaX * config.SPLAT_FORCE, p.deltaY * config.SPLAT_FORCE, p.color);
+}
+function multipleSplats(amount) {
+  for (let i = 0; i < amount; i++) { const c = themedColor(); c.r *= 10; c.g *= 10; c.b *= 10;
+    const x = Math.random(), y = Math.random();
+    const dx = 1000 * (Math.random() - 0.5), dy = 1000 * (Math.random() - 0.5);
+    splat(x, y, dx, dy, c); }
+}
+// gentle self-stirring "fountain" so it's alive without a cursor
+let autoT = 0, autoAngle = Math.random() * 6.28;
+function autoStir(dt) {
+  if (!config.AUTO) return;
+  autoT -= dt;
+  if (autoT <= 0) {
+    autoT = 0.18 + Math.random() * 0.25;
+    autoAngle += 0.5 + Math.random();
+    const x = 0.5 + Math.cos(autoT * 7 + autoAngle) * 0.32 * Math.sin(autoAngle * 0.7);
+    const y = 0.5 + Math.sin(autoAngle) * 0.30;
+    const dir = autoAngle + Math.PI;
+    const f = config.SPLAT_FORCE * (0.12 + Math.random() * 0.12);
+    const c = themedColor(); c.r *= 8; c.g *= 8; c.b *= 8;
+    splat(x, y, Math.cos(dir) * f, Math.sin(dir) * f, c);
   }
 }
-let rayPhase = 0;
-function drawSunRays(dt){
-  rayPhase += 0.01*dt; const sx=W*0.78, sy=H*0.16;
-  ctx.globalCompositeOperation='lighter';
-  const glow=ctx.createRadialGradient(sx,sy,0,sx,sy,Math.max(W,H)*0.5);
-  glow.addColorStop(0,'rgba(255,240,200,0.18)'); glow.addColorStop(1,'rgba(255,240,200,0)');
-  ctx.fillStyle=glow; ctx.fillRect(0,0,W,H);
-  const N=9, len=Math.hypot(W,H);
-  for (let i=0;i<N;i++){ const a=2.3 + i/N*1.1 + Math.sin(rayPhase+i)*0.03;
-    const wdt=(0.02+0.02*Math.abs(Math.sin(rayPhase*1.3+i)))*1.2;
-    ctx.globalAlpha=0.05+0.05*Math.abs(Math.sin(rayPhase+i*1.7));
-    ctx.fillStyle='rgba(255,245,215,1)'; ctx.beginPath(); ctx.moveTo(sx,sy);
-    ctx.lineTo(sx+Math.cos(a-wdt)*len, sy+Math.sin(a-wdt)*len);
-    ctx.lineTo(sx+Math.cos(a+wdt)*len, sy+Math.sin(a+wdt)*len);
-    ctx.closePath(); ctx.fill(); }
-  ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
-}
 
-/* ── Host listeners (Lively + Wallpaper Engine) ─────────────────────────── */
-function applyProp(name, val){
-  switch (name){
-    case 'scene': cfg.scene=+val; loadScene(cfg.scene); break;
-    case 'customUrl': cfg.customUrl=String(val); if(SCENES[cfg.scene]&&SCENES[cfg.scene].kind==='custom') loadScene(cfg.scene); break;
-    case 'weather': cfg.weather=+val; buildWeather(); break;
-    case 'intensity': cfg.intensity=+val; buildWeather(); break;
-    case 'timeOfDay': cfg.timeOfDay=+val; applyGrade(); break;
-    case 'parallax': cfg.parallax=!!val; break;
-    case 'grain': cfg.grain=!!val; grainEl.style.opacity = val ? '0.05' : '0'; break;
+/* ── Audio reactivity (Lively / Wallpaper Engine) ───────────────────────── */
+let audioPulse = 0;
+function feedAudio(arr) {
+  if (!config.AUDIO || !arr || !arr.length) return;
+  let s = 0; const n = Math.min(40, arr.length);
+  for (let i = 0; i < n; i++) s += Math.abs(arr[i]);
+  const e = s / n;
+  if (e > 0.06 && audioPulse <= 0) {            // simple beat gate
+    audioPulse = 0.18; const c = themedColor(); c.r *= 14; c.g *= 14; c.b *= 14;
+    const x = Math.random(), y = Math.random();
+    splat(x, y, 1400 * (Math.random() - 0.5), 1400 * (Math.random() - 0.5), c);
+  }
+}
+window.livelyAudioListener = feedAudio;
+if (typeof window.wallpaperRegisterAudioListener === 'function') window.wallpaperRegisterAudioListener(feedAudio);
+
+/* ── Host property listeners ────────────────────────────────────────────── */
+const map01 = (v, a, b) => a + (Math.max(0, Math.min(100, v)) / 100) * (b - a);
+function applyProp(name, val) {
+  switch (name) {
+    case 'quality': { const q = +val; // 0 low 1 med 2 high
+      config.SIM_RESOLUTION = [96, 128, 192][q] || 128;
+      config.DYE_RESOLUTION = [512, 1024, 1440][q] || 1024;
+      if (!ext.supportLinearFiltering) config.DYE_RESOLUTION = Math.min(config.DYE_RESOLUTION, 512);
+      initFramebuffers(); break; }
+    case 'swirl': config.CURL = map01(+val, 0, 50); break;
+    case 'fade': config.DENSITY_DISSIPATION = map01(+val, 0.2, 4); break;
+    case 'splatSize': config.SPLAT_RADIUS = map01(+val, 0.08, 0.6); break;
+    case 'glow': config.BLOOM_INTENSITY = map01(+val, 0, 1.6);
+      config.BLOOM = config.BLOOM_INTENSITY > 0.001; updateKeywords(); break;
+    case 'theme': config.THEME = +val; break;
+    case 'auto': config.AUTO = !!val; break;
+    case 'audio': config.AUDIO = !!val; break;
+    case 'shading': config.SHADING = !!val && ext.supportLinearFiltering; updateKeywords(); break;
   }
 }
 window.livelyPropertyListener = applyProp;
-window.wallpaperPropertyListener = { applyUserProperties(props){
-  for (const k in props){ let v=props[k].value;
-    if (typeof v==='string' && /^\d+$/.test(v)) v=+v; applyProp(k, v); } } };
+window.wallpaperPropertyListener = { applyUserProperties(props) {
+  for (const k in props) { let v = props[k].value;
+    if (typeof v === 'string' && /^\d+$/.test(v)) v = +v; applyProp(k, v); } } };
+
+/* ── Bloom pass ─────────────────────────────────────────────────────────── */
+function applyBloom(source, destination) {
+  if (bloomFramebuffers.length < 2) return;
+  let last = destination;
+  gl.disable(gl.BLEND);
+  bloomPrefilterProgram.bind();
+  const knee = config.BLOOM_THRESHOLD * config.BLOOM_SOFT_KNEE + 0.0001;
+  const curve0 = config.BLOOM_THRESHOLD - knee, curve1 = knee * 2, curve2 = 0.25 / knee;
+  gl.uniform3f(bloomPrefilterProgram.uniforms.curve, curve0, curve1, curve2);
+  gl.uniform1f(bloomPrefilterProgram.uniforms.threshold, config.BLOOM_THRESHOLD);
+  gl.uniform1i(bloomPrefilterProgram.uniforms.uTexture, source.attach(0));
+  blit(last);
+
+  bloomBlurProgram.bind();
+  for (let i = 0; i < bloomFramebuffers.length; i++) {
+    const dest = bloomFramebuffers[i];
+    gl.uniform2f(bloomBlurProgram.uniforms.texelSize, last.texelSizeX, last.texelSizeY);
+    gl.uniform1i(bloomBlurProgram.uniforms.uTexture, last.attach(0));
+    blit(dest); last = dest;
+  }
+  gl.blendFunc(gl.ONE, gl.ONE); gl.enable(gl.BLEND);
+  for (let i = bloomFramebuffers.length - 2; i >= 0; i--) {
+    const baseTex = bloomFramebuffers[i];
+    gl.uniform2f(bloomBlurProgram.uniforms.texelSize, last.texelSizeX, last.texelSizeY);
+    gl.uniform1i(bloomBlurProgram.uniforms.uTexture, last.attach(0));
+    gl.viewport(0, 0, baseTex.width, baseTex.height);
+    blit(baseTex); last = baseTex;
+  }
+  gl.disable(gl.BLEND);
+  bloomFinalProgram.bind();
+  gl.uniform2f(bloomFinalProgram.uniforms.texelSize, last.texelSizeX, last.texelSizeY);
+  gl.uniform1i(bloomFinalProgram.uniforms.uTexture, last.attach(0));
+  gl.uniform1f(bloomFinalProgram.uniforms.intensity, config.BLOOM_INTENSITY);
+  blit(destination);
+}
+
+/* ── Simulation step ────────────────────────────────────────────────────── */
+let colorUpdateTimer = 0;
+function step(dt) {
+  gl.disable(gl.BLEND);
+  // curl
+  curlProgram.bind();
+  gl.uniform2f(curlProgram.uniforms.texelSize, velocity.texelSizeX, velocity.texelSizeY);
+  gl.uniform1i(curlProgram.uniforms.uVelocity, velocity.read.attach(0));
+  blit(curl);
+  // vorticity
+  vorticityProgram.bind();
+  gl.uniform2f(vorticityProgram.uniforms.texelSize, velocity.texelSizeX, velocity.texelSizeY);
+  gl.uniform1i(vorticityProgram.uniforms.uVelocity, velocity.read.attach(0));
+  gl.uniform1i(vorticityProgram.uniforms.uCurl, curl.attach(1));
+  gl.uniform1f(vorticityProgram.uniforms.curl, config.CURL);
+  gl.uniform1f(vorticityProgram.uniforms.dt, dt);
+  blit(velocity.write); velocity.swap();
+  // divergence
+  divergenceProgram.bind();
+  gl.uniform2f(divergenceProgram.uniforms.texelSize, velocity.texelSizeX, velocity.texelSizeY);
+  gl.uniform1i(divergenceProgram.uniforms.uVelocity, velocity.read.attach(0));
+  blit(divergence);
+  // clear pressure (decay)
+  clearProgram.bind();
+  gl.uniform1i(clearProgram.uniforms.uTexture, pressure.read.attach(0));
+  gl.uniform1f(clearProgram.uniforms.value, config.PRESSURE);
+  blit(pressure.write); pressure.swap();
+  // pressure solve
+  pressureProgram.bind();
+  gl.uniform2f(pressureProgram.uniforms.texelSize, velocity.texelSizeX, velocity.texelSizeY);
+  gl.uniform1i(pressureProgram.uniforms.uDivergence, divergence.attach(0));
+  for (let i = 0; i < config.PRESSURE_ITERATIONS; i++) {
+    gl.uniform1i(pressureProgram.uniforms.uPressure, pressure.read.attach(1));
+    blit(pressure.write); pressure.swap();
+  }
+  // subtract gradient
+  gradienSubtractProgram.bind();
+  gl.uniform2f(gradienSubtractProgram.uniforms.texelSize, velocity.texelSizeX, velocity.texelSizeY);
+  gl.uniform1i(gradienSubtractProgram.uniforms.uPressure, pressure.read.attach(0));
+  gl.uniform1i(gradienSubtractProgram.uniforms.uVelocity, velocity.read.attach(1));
+  blit(velocity.write); velocity.swap();
+  // advect velocity
+  advectionProgram.bind();
+  gl.uniform2f(advectionProgram.uniforms.texelSize, velocity.texelSizeX, velocity.texelSizeY);
+  if (!ext.supportLinearFiltering)
+    gl.uniform2f(advectionProgram.uniforms.dyeTexelSize, velocity.texelSizeX, velocity.texelSizeY);
+  gl.uniform1i(advectionProgram.uniforms.uVelocity, velocity.read.attach(0));
+  gl.uniform1i(advectionProgram.uniforms.uSource, velocity.read.attach(0));
+  gl.uniform1f(advectionProgram.uniforms.dt, dt);
+  gl.uniform1f(advectionProgram.uniforms.dissipation, config.VELOCITY_DISSIPATION);
+  blit(velocity.write); velocity.swap();
+  // advect dye
+  if (!ext.supportLinearFiltering)
+    gl.uniform2f(advectionProgram.uniforms.dyeTexelSize, dye.texelSizeX, dye.texelSizeY);
+  gl.uniform1i(advectionProgram.uniforms.uVelocity, velocity.read.attach(0));
+  gl.uniform1i(advectionProgram.uniforms.uSource, dye.read.attach(1));
+  gl.uniform1f(advectionProgram.uniforms.dissipation, config.DENSITY_DISSIPATION);
+  blit(dye.write); dye.swap();
+}
+
+/* ── Render ─────────────────────────────────────────────────────────────── */
+function render() {
+  if (config.BLOOM) applyBloom(dye.read, bloom);
+  gl.disable(gl.BLEND);
+  displayMaterial.bind();
+  gl.uniform2f(displayMaterial.uniforms.texelSize, 1 / gl.drawingBufferWidth, 1 / gl.drawingBufferHeight);
+  gl.uniform1i(displayMaterial.uniforms.uTexture, dye.read.attach(0));
+  if (config.BLOOM) {
+    gl.uniform1i(displayMaterial.uniforms.uBloom, bloom.attach(1));
+    gl.uniform1f(displayMaterial.uniforms.uBloomIntensity, 1.0);
+  }
+  blit(null);
+}
+
+/* ── Resize ─────────────────────────────────────────────────────────────── */
+function resize() {
+  const w = scaleByPixelRatio(window.innerWidth), h = scaleByPixelRatio(window.innerHeight);
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; initFramebuffers(); return true; }
+  return false;
+}
+window.addEventListener('resize', resize);
 
 /* ── Pause when desktop hidden ──────────────────────────────────────────── */
 let running = true;
 document.addEventListener('visibilitychange', () => {
   running = !document.hidden;
-  if (running){ last = performance.now(); requestAnimationFrame(frame); }
+  if (running) { lastUpdate = performance.now(); requestAnimationFrame(update); }
 });
 
 /* ── Main loop ──────────────────────────────────────────────────────────── */
-let last = performance.now(), acc = 0; const FRAME_MS = 1000/45;
-let kb = 0; // ken-burns phase
-function frame(now){
+let lastUpdate = performance.now();
+function calcDeltaTime() {
+  const now = performance.now();
+  let dt = (now - lastUpdate) / 1000; lastUpdate = now;
+  return Math.min(dt, 0.0166);
+}
+function updateColors(dt) {
+  colorUpdateTimer += dt * config.COLOR_UPDATE_SPEED;
+  if (colorUpdateTimer >= 1) colorUpdateTimer = colorUpdateTimer % 1;
+}
+function applyInputs() {
+  for (const p of pointers) if (p.moved) { p.moved = false; splatPointer(p); }
+}
+function update() {
   if (!running) return;
-  acc += now - last; last = now;
-  if (acc < FRAME_MS){ requestAnimationFrame(frame); return; }
-  const dt = Math.min(3, acc/16.667); acc = 0;
-
-  // ease mouse, wind, gust
-  mouse.x += (mouse.tx-mouse.x)*0.05; mouse.y += (mouse.ty-mouse.y)*0.05;
-  windX += (((cfg.weather===3)?1.6:0.3) + (mouse.x-0.5)*2.2 - windX)*0.03;
-  gust *= 0.94;
-  kb += 0.0009*dt;
-
-  // photo drift (ken burns) + parallax → CSS transform on the active bg div
-  const px = cfg.parallax ? (mouse.x-0.5) : 0, py = cfg.parallax ? (mouse.y-0.5) : 0;
-  const driftX = Math.sin(kb)*22, driftY = Math.cos(kb*0.8)*16;
-  const tf = `scale(1.08) translate(${(-px*26+driftX).toFixed(1)}px, ${(-py*18+driftY).toFixed(1)}px)`;
-  bgFront.style.transform = tf; bgBack.style.transform = tf;
-
-  // grain shimmer
-  if (cfg.grain) grainEl.style.backgroundPosition = `${(Math.random()*96)|0}px ${(Math.random()*96)|0}px`;
-
-  // clear FX layer (transparent over the photo)
-  ctx.clearRect(0, 0, W, H);
-
-  updateLightning(dt);
-  drawWeather(dt);
-
-  // ripples on click
-  for (let i=ripples.length-1;i>=0;i--){ const r=ripples[i]; r.r+=3.5*dt; r.life-=0.02*dt;
-    if (r.life<=0){ripples.splice(i,1);continue;}
-    ctx.strokeStyle=`rgba(255,255,255,${r.life*0.3})`; ctx.lineWidth=1.5;
-    ctx.beginPath(); ctx.arc(r.x,r.y,r.r,0,6.2832); ctx.stroke(); }
-
-  // lightning flash + bolt
-  if (flash>0){ ctx.fillStyle=`rgba(220,230,255,${flash*0.5})`; ctx.fillRect(0,0,W,H);
-    if (bolt){ ctx.strokeStyle=`rgba(255,255,255,${Math.min(1,flash*1.5)})`; ctx.lineWidth=2;
-      ctx.beginPath(); ctx.moveTo(bolt[0].x,bolt[0].y);
-      for (let i=1;i<bolt.length;i++) ctx.lineTo(bolt[i].x,bolt[i].y); ctx.stroke(); } }
-
-  requestAnimationFrame(frame);
+  const dt = calcDeltaTime();
+  if (resize()) { /* framebuffers rebuilt */ }
+  updateColors(dt);
+  applyInputs();
+  if (audioPulse > 0) audioPulse -= dt;
+  // self-stir only when the cursor has been still for a moment
+  if (performance.now() - lastPointerMove > 600) autoStir(dt);
+  step(dt);
+  render();
+  requestAnimationFrame(update);
 }
 
 /* ── Go ─────────────────────────────────────────────────────────────────── */
+updateKeywords();
 resize();
-applyGrade();
-loadScene(cfg.scene);
-setInterval(() => { if (cfg.timeOfDay === 0) applyGrade(); }, 60000); // auto TOD refresh
-requestAnimationFrame(frame);
+initFramebuffers();
+multipleSplats(parseInt(String(Math.random() * 20)) + 8);
+requestAnimationFrame(update);
 </script>
 </body>
 </html>
