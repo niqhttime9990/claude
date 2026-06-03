@@ -3,273 +3,156 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Petrichor — rain on glass</title>
+<title>Living Photo — cinematic wallpaper</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #05070d; }
-  canvas { display: block; width: 100vw; height: 100vh; }
-  #err { position: fixed; inset: 0; display: none; place-items: center; color: #9aa4c8;
-    font: 15px/1.6 ui-sans-serif, system-ui, sans-serif; text-align: center; padding: 24px; }
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #05060c; }
+  .layer { position: fixed; inset: 0; pointer-events: none; }
+  #bg {
+    background-position: center; background-size: cover; background-repeat: no-repeat;
+    transform: scale(1.12); will-change: transform;
+    background-image: linear-gradient(160deg,#0b0f1c 0%,#0a0e1a 45%,#050609 100%);
+  }
+  #grade { mix-blend-mode: soft-light; opacity: 0; transition: opacity 1.5s, background 1.5s; }
+  #vignette { background: radial-gradient(125% 115% at 50% 46%,
+      rgba(0,0,0,0) 45%, rgba(0,0,0,.32) 78%, rgba(0,0,0,.62) 100%); }
+  #fx { } /* canvas */
+  #grain { mix-blend-mode: overlay; opacity: .05; }
+  #bg{z-index:0}#grade{z-index:1}#fx{z-index:2}#vignette{z-index:3}#grain{z-index:4}
 </style>
 </head>
 <body>
-<canvas id="c"></canvas>
-<div id="err">This wallpaper needs WebGL2.<br>Enable hardware acceleration and reload.</div>
+<div id="bg" class="layer"></div>
+<div id="grade" class="layer"></div>
+<canvas id="fx" class="layer"></canvas>
+<div id="vignette" class="layer"></div>
+<div id="grain" class="layer"></div>
 <script>
 "use strict";
 /* ──────────────────────────────────────────────────────────────────────────
-   PETRICHOR  ·  rain on glass
+   LIVING PHOTO  ·  turn a still image into a cinematic live wallpaper
    ----------------------------------------------------------------------------
-   A beautiful night image seen through a wet, fogged-up window. Animated
-   droplets refract and sharpen the lights behind the glass; trails slide down;
-   the whole pane is softly frosted — and your cursor wipes it clear like a hand
-   on a misted window. Ships with a dreamy bokeh "city lights" scene; drop in any
-   image you like (bg.jpg or a URL) for your own.
-   Rain-on-glass technique after BigWIngs' "Heartfelt" (Shadertoy). WebGL2. MIT.
+   Displays YOUR image (bg.jpg in this folder, or an image URL) as the backdrop
+   and brings it alive with a slow cinematic drift + mouse parallax and a
+   tasteful weather/atmosphere layer — real falling rain or snow, drifting fog,
+   floating dust/embers — finished with vignette, colour grade and film grain.
+   The image is a background layer (not a GPU texture), so local files work as a
+   desktop wallpaper. Smooth 60fps canvas. Zero dependencies.
    ────────────────────────────────────────────────────────────────────────── */
 
-const canvas = document.getElementById('c');
-const gl = canvas.getContext('webgl2', { alpha:false, antialias:false, depth:false });
-if (!gl) { document.getElementById('err').style.display='grid'; throw new Error('no webgl2'); }
-
-/* ── Settings (live-editable via Lively / Wallpaper Engine) ─────────────── */
 const cfg = {
-  scene: 0,       // built-in bokeh scene (used when no image URL set)
-  image: '',      // optional image URL; overrides the scene when it loads
-  rain: 60,       // 0..100 rain amount
-  frost: 55,      // 0..100 how fogged the glass is
-  zoom: 18,       // 0..100 background zoom
-  brightness: 52, // 0..100
-  vignette: 60,   // 0..100
-  grain: 35,      // 0..100
-  tint: 0,        // 0 natural 1 warm 2 mono 3 cool
+  image: '',        // image URL; if empty, tries bg.jpg, else a dark gradient
+  weather: 0,       // 0 Rain  1 Snow  2 Fog  3 Embers  4 None
+  intensity: 55,    // 0..100
+  fog: 35,          // 0..100 drifting fog
+  wind: 50,         // 0..100 (50 = calm; <50 left, >50 right)
   parallax: true,
-  wipe: true,     // cursor wipes the fog
+  drift: true,      // slow cinematic ken-burns
+  vignette: 58,     // 0..100
+  grain: 30,        // 0..100
+  grade: 1,         // 0 None 1 Cool 2 Warm 3 Noir
 };
 
-/* ── Shaders (GLSL ES 3.00) ─────────────────────────────────────────────── */
-const VS = `#version 300 es
-in vec2 aPosition; out vec2 vUv;
-void main(){ vUv = aPosition*0.5+0.5; gl_Position = vec4(aPosition,0.0,1.0); }`;
+const bg = document.getElementById('bg');
+const gradeEl = document.getElementById('grade');
+const vigEl = document.getElementById('vignette');
+const grainEl = document.getElementById('grain');
+const fx = document.getElementById('fx');
+const ctx = fx.getContext('2d');
 
-const FS = `#version 300 es
-precision highp float;
-in vec2 vUv; out vec4 frag;
-uniform sampler2D uTex;
-uniform vec2 uRes, uImgRes, uMouse;
-uniform float uTime, uRain, uFrost, uZoom, uBright, uVig, uGrain, uParallax, uWipe;
-uniform int uTint;
+/* ── Background image (CSS layer — local files OK in Lively) ─────────────── */
+const FALLBACK = 'linear-gradient(160deg,#0b0f1c 0%,#0a0e1a 45%,#050609 100%)';
+function setBg(url){
+  url = (url||'').trim();
+  if (!url) { bg.style.backgroundImage = FALLBACK; return; }
+  // probe load so a missing file falls back cleanly (display only, no CORS read)
+  const img = new Image();
+  img.onload = () => { bg.style.backgroundImage = `url("${url}"), ${FALLBACK}`; };
+  img.onerror = () => { bg.style.backgroundImage = FALLBACK; };
+  img.src = url;
+}
+setBg(cfg.image || 'bg.jpg');
 
-float N(float t){ return fract(sin(t*12345.564)*7658.76); }
-float Saw(float b, float t){ return smoothstep(0.,b,t)*smoothstep(1.,b,t); }
-vec3 N13(float p){
-  vec3 p3=fract(vec3(p)*vec3(.1031,.11369,.13787));
-  p3+=dot(p3,p3.yzx+19.19);
-  return fract(vec3((p3.x+p3.y)*p3.z,(p3.x+p3.z)*p3.y,(p3.y+p3.z)*p3.x));
-}
-vec2 DropLayer2(vec2 uv, float t){
-  vec2 UV=uv; uv.y+=t*0.75;
-  vec2 a=vec2(6.,1.), grid=a*2.;
-  vec2 id=floor(uv*grid);
-  float colShift=N(id.x); uv.y+=colShift;
-  id=floor(uv*grid);
-  vec3 n=N13(id.x*35.2+id.y*2376.1);
-  vec2 st=fract(uv*grid)-vec2(.5,0.);
-  float x=n.x-.5;
-  float y=UV.y*20.;
-  float wiggle=sin(y+sin(y));
-  x+=wiggle*(.5-abs(x))*(n.z-.5); x*=.7;
-  float ti=fract(t+n.z);
-  y=(Saw(.85,ti)-.5)*.9+.5;
-  vec2 p=vec2(x,y);
-  float d=length((st-p)*a.yx);
-  float mainDrop=smoothstep(.4,.0,d);
-  float r=sqrt(smoothstep(1.,y,st.y));
-  float cd=abs(st.x-x);
-  float trail=smoothstep(.23*r,.15*r*r,cd);
-  float trailFront=smoothstep(-.02,.02,st.y-y);
-  trail*=trailFront*r*r;
-  y=UV.y; float trail2=smoothstep(.2*r,.0,cd);
-  float droplets=max(0.,(sin(y*(1.-y)*120.)-st.y))*trail2*trailFront*n.z;
-  y=fract(y*10.)+(st.y-.5);
-  float dd=length(st-vec2(x,y));
-  droplets=smoothstep(.3,0.,dd);
-  float m=mainDrop+droplets*r*trailFront;
-  return vec2(m, trail);
-}
-float StaticDrops(vec2 uv, float t){
-  uv*=40.;
-  vec2 id=floor(uv); uv=fract(uv)-.5;
-  vec3 n=N13(id.x*107.45+id.y*3543.654);
-  vec2 p=(n.xy-.5)*.7;
-  float d=length(uv-p);
-  float fade=Saw(.025,fract(t+n.z));
-  return smoothstep(.3,0.,d)*fract(n.z*10.)*fade;
-}
-vec2 Drops(vec2 uv, float t, float l0, float l1, float l2){
-  float s=StaticDrops(uv,t)*l0;
-  vec2 m1=DropLayer2(uv,t)*l1;
-  vec2 m2=DropLayer2(uv*1.85,t)*l2;
-  float c=s+m1.x+m2.x;
-  c=smoothstep(.3,1.,c);
-  return vec2(c, max(m1.y*l0, m2.y*l1));
+/* ── Colour grade ───────────────────────────────────────────────────────── */
+function applyGrade(){
+  const G = [null,
+    {c:'rgb(120,160,255)', b:'soft-light', o:0.30},   // cool
+    {c:'rgb(255,170,90)',  b:'soft-light', o:0.28},   // warm
+    {c:'rgb(160,160,170)', b:'saturation', o:0.9 } ]; // noir-ish
+  const g = G[cfg.grade];
+  if (!g) { gradeEl.style.opacity = 0; return; }
+  gradeEl.style.background = g.c; gradeEl.style.mixBlendMode = g.b; gradeEl.style.opacity = g.o;
 }
 
-void main(){
-  vec2 fc = vUv*uRes;
-  float aspect = uRes.x/uRes.y;
-  vec2 uv = (fc-0.5*uRes)/uRes.y;
-  uv *= 0.7;
-  float t = uTime*0.2;
+/* ── Film grain (animated CSS noise) ────────────────────────────────────── */
+(function makeGrain(){
+  const n=document.createElement('canvas'); n.width=n.height=100;
+  const g=n.getContext('2d'), d=g.createImageData(100,100);
+  for(let i=0;i<d.data.length;i+=4){ const v=Math.random()*255|0; d.data[i]=d.data[i+1]=d.data[i+2]=v; d.data[i+3]=255; }
+  g.putImageData(d,0,0);
+  grainEl.style.backgroundImage=`url("${n.toDataURL()}")`; grainEl.style.backgroundRepeat='repeat';
+})();
 
-  float rain = uRain;
-  float l0 = smoothstep(-.5,1.,rain)*2.0;
-  float l1 = smoothstep(.25,.75,rain);
-  float l2 = smoothstep(.0,.5,rain);
-
-  vec2 c = Drops(uv, t, l0, l1, l2);
-  vec2 e = vec2(.0015, 0.);
-  float cx = Drops(uv+e,    t, l0, l1, l2).x;
-  float cy = Drops(uv+e.yx, t, l0, l1, l2).x;
-  vec2 n = vec2(cx-c.x, cy-c.x);
-
-  // background cover-fit uv
-  float cover = max(uRes.x/uImgRes.x, uRes.y/uImgRes.y);
-  vec2 size = uImgRes*cover;
-  vec2 buv = (fc-(uRes-size)*0.5)/size;
-  vec2 par = (uMouse-0.5)*uParallax*0.02;
-  buv = (buv-0.5)/(1.0+uZoom*0.6) + 0.5 + par + vec2(sin(uTime*0.03)*0.004, 0.0);
-  buv.y = 1.0 - buv.y;
-
-  // fog: how frosted the glass is here (cleared by drops/trails and the cursor)
-  vec2 dm = vUv-uMouse; dm.x*=aspect;
-  float wipe = smoothstep(0.17,0.0,length(dm))*uWipe;
-  float clearAmt = clamp(c.x + c.y*0.7, 0.0, 1.0);
-  float fog = (1.0-clearAmt)*(1.0-wipe)*uFrost;
-
-  float maxBlur = mix(2.5, 6.0, uFrost);
-  float lod = mix(0.0, maxBlur, fog);
-  vec3 col = textureLod(uTex, buv + n*1.1, lod).rgb;
-
-  // frosted whitening + condensation
-  vec3 fogTint = uTint==1 ? vec3(0.86,0.80,0.72) : vec3(0.74,0.80,0.92);
-  col = mix(col, fogTint*0.45, fog*0.45);
-  col += c.x*0.05;                       // tiny droplet highlight
-
-  // grade
-  col *= mix(0.65, 1.35, uBright);
-  if (uTint==1) col *= vec3(1.08,1.0,0.86);
-  else if (uTint==2){ float g=dot(col,vec3(.299,.587,.114)); col=vec3(g); }
-  else if (uTint==3) col *= vec3(0.82,0.88,1.08);
-
-  vec2 q = vUv-0.5; q.x*=aspect;
-  col *= mix(1.0, smoothstep(1.15,0.25,length(q)), uVig);
-  col *= 1.0 - N13(vUv.x*1234.5 + vUv.y*678.9 + fract(uTime)*51.7).x*uGrain*0.09;
-  col = max(col, 0.0);
-  frag = vec4(col, 1.0);
-}`;
-
-/* ── Compile / link ─────────────────────────────────────────────────────── */
-function sh(type, src){ const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s);
-  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(s)); return s; }
-const prog = gl.createProgram();
-gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS));
-gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
-gl.bindAttribLocation(prog, 0, 'aPosition');
-gl.linkProgram(prog);
-if(!gl.getProgramParameter(prog, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(prog));
-gl.useProgram(prog);
-const vbo=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,vbo);
-gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
-gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
-const U={}; ['uTex','uRes','uImgRes','uMouse','uTime','uRain','uFrost','uZoom','uBright','uVig','uGrain','uParallax','uWipe','uTint']
-  .forEach(k=>U[k]=gl.getUniformLocation(prog,k));
-
-/* ── Background texture (built-in bokeh scene, or user image) ───────────── */
-const tex = gl.createTexture();
-let imgW=1280, imgH=720;
-function setTexture(source, w, h){
-  imgW=w; imgH=h;
-  gl.bindTexture(gl.TEXTURE_2D, tex);
-  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.generateMipmap(gl.TEXTURE_2D);
-}
-// dreamy out-of-focus "city lights at night" — smooth bokeh, never stippled
-const SCENES = [
-  { name:'City lights', grad:['#070a16','#0a1020','#05060c'], pal:[[120,150,255],[90,200,255],[255,170,90],[255,90,80],[180,140,255],[120,255,210],[255,225,150]] },
-  { name:'Blue hour',   grad:['#04060f','#0a1428','#04060e'], pal:[[90,140,255],[120,180,255],[80,200,235],[150,160,255],[200,220,255]] },
-  { name:'Amber',       grad:['#100a08','#1a0f0a','#080604'], pal:[[255,170,80],[255,120,60],[255,210,140],[255,90,70],[230,160,90]] },
-  { name:'Neon',        grad:['#0a0612','#120a20','#05030a'], pal:[[255,60,170],[80,230,255],[170,90,255],[60,255,180],[255,90,90]] },
-  { name:'Forest',      grad:['#05100a','#0a1a12','#040806'], pal:[[120,255,180],[90,200,150],[180,255,200],[120,230,255],[230,255,210]] },
-];
-function bokehScene(s){
-  const cv=document.createElement('canvas'); cv.width=1280; cv.height=720;
-  const x=cv.getContext('2d');
-  const g=x.createLinearGradient(0,0,0,720);
-  g.addColorStop(0,s.grad[0]); g.addColorStop(0.55,s.grad[1]); g.addColorStop(1,s.grad[2]);
-  x.fillStyle=g; x.fillRect(0,0,1280,720);
-  x.globalCompositeOperation='lighter';
-  let seed=987654321; const rnd=()=>{ seed^=seed<<13; seed^=seed>>>17; seed^=seed<<5; return ((seed>>>0)/4294967296); };
-  for(let i=0;i<52;i++){
-    const cx=rnd()*1280, cy=110+rnd()*620, r=16+rnd()*130;
-    const col=s.pal[(rnd()*s.pal.length)|0]; const a=0.06+rnd()*0.26;
-    const rg=x.createRadialGradient(cx,cy,0,cx,cy,r);
-    rg.addColorStop(0,`rgba(${col[0]},${col[1]},${col[2]},${a})`);
-    rg.addColorStop(0.5,`rgba(${col[0]},${col[1]},${col[2]},${a*0.4})`);
-    rg.addColorStop(1,'rgba(0,0,0,0)');
-    x.fillStyle=rg; x.beginPath(); x.arc(cx,cy,r,0,6.2832); x.fill();
-  }
-  const mg=x.createRadialGradient(980,150,0,980,150,95);  // soft moon / lamp
-  mg.addColorStop(0,'rgba(225,232,255,0.55)'); mg.addColorStop(1,'rgba(225,232,255,0)');
-  x.fillStyle=mg; x.beginPath(); x.arc(980,150,95,0,6.2832); x.fill();
-  x.globalCompositeOperation='source-over';
-  return cv;
-}
-let usingImage=false;
-function showScene(){ setTexture(bokehScene(SCENES[cfg.scene]||SCENES[0]), 1280, 720); usingImage=false; }
-function loadImage(url){
-  url=(url||'').trim();
-  if(!url){ showScene(); return; }
-  const img=new Image();
-  if(/^https?:/i.test(url)) img.crossOrigin='anonymous';   // only meaningful for web URLs
-  img.onload=()=>{ try{ setTexture(img, img.naturalWidth||1280, img.naturalHeight||720); usingImage=true; }
-                   catch(e){ showScene(); } };
-  img.onerror=()=> showScene();
-  img.src=url;
-}
-// instant + reliable scene first, then try the user's image if one is configured
-showScene();
-if (cfg.image && cfg.image.trim()) loadImage(cfg.image);
-
-/* ── Sizing / input ─────────────────────────────────────────────────────── */
+/* ── Sizing ─────────────────────────────────────────────────────────────── */
 let W=0,H=0,DPR=1;
-function resize(){ DPR=Math.min(window.devicePixelRatio||1,1.25);
+function resize(){ DPR=Math.min(window.devicePixelRatio||1,2);
   W=window.innerWidth; H=window.innerHeight;
-  canvas.width=Math.floor(W*DPR); canvas.height=Math.floor(H*DPR);
-  gl.viewport(0,0,canvas.width,canvas.height); }
+  fx.width=Math.floor(W*DPR); fx.height=Math.floor(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  buildParticles();
+}
 window.addEventListener('resize', resize);
 
+/* ── Soft sprites (fog, snow bokeh, glow) ───────────────────────────────── */
+function softSprite(size, inner){
+  const c=document.createElement('canvas'); c.width=c.height=size;
+  const g=c.getContext('2d'); const r=size/2;
+  const rg=g.createRadialGradient(r,r,0,r,r,r);
+  rg.addColorStop(0,`rgba(255,255,255,${inner})`);
+  rg.addColorStop(0.5,`rgba(255,255,255,${inner*0.35})`);
+  rg.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=rg; g.fillRect(0,0,size,size); return c;
+}
+const fogSprite = softSprite(256, 0.5);
+const glowSprite = softSprite(64, 1.0);
+
+/* ── Particles ──────────────────────────────────────────────────────────── */
+let rain=[], snow=[], dust=[], fogs=[];
+const rnd=(a,b)=>a+Math.random()*(b-a);
+function buildParticles(){
+  rain=[]; snow=[]; dust=[]; fogs=[];
+  const area=W*H, I=cfg.intensity/100;
+  if (cfg.weather===0){ const n=Math.round(area/2200*(0.3+I*1.4));
+    for(let i=0;i<n;i++) rain.push({x:rnd(-0.1*W,W),y:rnd(0,H),z:Math.random(),len:rnd(9,20),sp:rnd(900,1500)}); }
+  if (cfg.weather===1){ const n=Math.round(area/4200*(0.3+I*1.4));
+    for(let i=0;i<n;i++) snow.push({x:rnd(0,W),y:rnd(0,H),z:Math.random(),r:rnd(1,3),ph:rnd(0,6.28),sp:rnd(20,55)}); }
+  if (cfg.weather===3){ const n=Math.round(area/9000*(0.3+I*1.4));
+    for(let i=0;i<n;i++) dust.push({x:rnd(0,W),y:rnd(0,H),vx:rnd(-6,6),vy:rnd(-18,-4),ph:rnd(0,6.28),sp:rnd(1,2.6),r:rnd(1,2.4)}); }
+  // ambient dust for rain/snow too (subtle depth)
+  if (cfg.weather===0||cfg.weather===1){ const n=Math.round(area/26000);
+    for(let i=0;i<n;i++) dust.push({x:rnd(0,W),y:rnd(0,H),vx:rnd(-4,4),vy:rnd(-8,-1),ph:rnd(0,6.28),sp:rnd(.8,2),r:rnd(.8,1.8)}); }
+  const fn=4+Math.round(cfg.fog/100*5);
+  for(let i=0;i<fn;i++) fogs.push({x:rnd(-0.2*W,W),y:rnd(H*0.25,H*0.95),r:rnd(W*0.18,W*0.42),sp:rnd(4,16),a:rnd(0.02,0.06)});
+}
+
+/* ── Input ──────────────────────────────────────────────────────────────── */
 const mouse={x:0.5,y:0.5,tx:0.5,ty:0.5};
-window.addEventListener('mousemove', e=>{ mouse.tx=e.clientX/window.innerWidth; mouse.ty=1-e.clientY/window.innerHeight; });
-window.addEventListener('touchmove', e=>{ const t=e.touches[0]; mouse.tx=t.clientX/window.innerWidth; mouse.ty=1-t.clientY/window.innerHeight; }, {passive:true});
+window.addEventListener('mousemove',e=>{ mouse.tx=e.clientX/window.innerWidth; mouse.ty=e.clientY/window.innerHeight; });
+window.addEventListener('touchmove',e=>{ const t=e.touches[0]; mouse.tx=t.clientX/innerWidth; mouse.ty=t.clientY/innerHeight; },{passive:true});
 
 function applyProp(name,val){ switch(name){
-  case 'scene': cfg.scene=+val; if(!usingImage) showScene(); break;
-  case 'image': cfg.image=String(val); loadImage(cfg.image); break;
-  case 'rain': cfg.rain=+val; break;
-  case 'frost': cfg.frost=+val; break;
-  case 'zoom': cfg.zoom=+val; break;
-  case 'brightness': cfg.brightness=+val; break;
-  case 'vignette': cfg.vignette=+val; break;
-  case 'grain': cfg.grain=+val; break;
-  case 'tint': cfg.tint=+val; break;
+  case 'image': cfg.image=String(val); setBg(cfg.image||'bg.jpg'); break;
+  case 'weather': cfg.weather=+val; buildParticles(); break;
+  case 'intensity': cfg.intensity=+val; buildParticles(); break;
+  case 'fog': cfg.fog=+val; buildParticles(); break;
+  case 'wind': cfg.wind=+val; break;
   case 'parallax': cfg.parallax=!!val; break;
-  case 'wipe': cfg.wipe=!!val; break;
+  case 'drift': cfg.drift=!!val; break;
+  case 'vignette': cfg.vignette=+val; vigEl.style.opacity=mix(0.2,1.0,cfg.vignette/100); break;
+  case 'grain': cfg.grain=+val; grainEl.style.opacity=String(cfg.grain/100*0.09); break;
+  case 'grade': cfg.grade=+val; applyGrade(); break;
 }}
+const mix=(a,b,t)=>a+(b-a)*t;
 window.livelyPropertyListener=applyProp;
 window.wallpaperPropertyListener={ applyUserProperties(p){ for(const k in p){ let v=p[k].value;
   if(typeof v==='string'&&/^\d+$/.test(v)) v=+v; applyProp(k,v);} } };
@@ -278,32 +161,67 @@ let running=true;
 document.addEventListener('visibilitychange',()=>{ running=!document.hidden; if(running){ last=performance.now(); requestAnimationFrame(frame);} });
 
 /* ── Loop ───────────────────────────────────────────────────────────────── */
-let last=performance.now(), t=0, acc=0; const FRAME=1000/45;
+let last=performance.now(), t=0;
 function frame(now){
   if(!running) return;
-  acc+=now-last; last=now;
-  if(acc<FRAME){ requestAnimationFrame(frame); return; }
-  const dt=Math.min(3,acc/16.667); acc=0; t+=dt*0.016;
-  mouse.x+=(mouse.tx-mouse.x)*0.07; mouse.y+=(mouse.ty-mouse.y)*0.07;
+  const dt=Math.min(3,(now-last)/16.667); last=now; t+=dt*0.016;
+  mouse.x+=(mouse.tx-mouse.x)*0.05; mouse.y+=(mouse.ty-mouse.y)*0.05;
+  const wind=(cfg.wind-50)/50*2.2;
 
-  gl.useProgram(prog);
-  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(U.uTex,0);
-  gl.uniform2f(U.uRes, canvas.width, canvas.height);
-  gl.uniform2f(U.uImgRes, imgW, imgH);
-  gl.uniform2f(U.uMouse, mouse.x, mouse.y);
-  gl.uniform1f(U.uTime, t);
-  gl.uniform1f(U.uRain, cfg.rain/100);
-  gl.uniform1f(U.uFrost, cfg.frost/100);
-  gl.uniform1f(U.uZoom, cfg.zoom/100);
-  gl.uniform1f(U.uBright, cfg.brightness/100);
-  gl.uniform1f(U.uVig, cfg.vignette/100);
-  gl.uniform1f(U.uGrain, cfg.grain/100);
-  gl.uniform1f(U.uParallax, cfg.parallax?1:0);
-  gl.uniform1f(U.uWipe, cfg.wipe?1:0);
-  gl.uniform1i(U.uTint, cfg.tint|0);
-  gl.drawArrays(gl.TRIANGLES,0,3);
+  // cinematic drift + parallax on the photo
+  const px=cfg.parallax?(mouse.x-0.5):0, py=cfg.parallax?(mouse.y-0.5):0;
+  const kx=cfg.drift?Math.sin(t*0.05)*1.4:0, ky=cfg.drift?Math.cos(t*0.04)*1.0:0;
+  const sc=cfg.drift?(1.12+Math.sin(t*0.03)*0.02):1.12;
+  bg.style.transform=`scale(${sc.toFixed(4)}) translate(${(-px*2.2+kx).toFixed(2)}%, ${(-py*1.6+ky).toFixed(2)}%)`;
+
+  // grain shimmer
+  if(cfg.grain>0) grainEl.style.backgroundPosition=`${Math.random()*100|0}px ${Math.random()*100|0}px`;
+
+  ctx.clearRect(0,0,W,H);
+  const ox=px*30, oy=py*18; // particle parallax (opposite-ish, subtle)
+
+  // fog (behind particles, soft)
+  ctx.globalCompositeOperation='screen';
+  for(const f of fogs){ f.x+=f.sp*0.016*dt*(0.5+wind*0.4); if(f.x-f.r>W) f.x=-f.r*2; if(f.x+f.r<0) f.x=W+f.r;
+    ctx.globalAlpha=f.a*(cfg.fog/50); ctx.drawImage(fogSprite,f.x-f.r+ox*0.4,f.y-f.r*0.55+oy*0.4,f.r*2,f.r*1.1); }
+  ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
+
+  // rain
+  if(cfg.weather===0){
+    ctx.lineCap='round'; const ang=0.16+wind*0.05;
+    for(const p of rain){ const v=p.sp*(0.5+p.z)*0.016*dt; p.y+=v; p.x+=ang*v;
+      if(p.y>H+20){p.y=-20;p.x=rnd(-0.1*W,W);} if(p.x>W+20)p.x-=W+40; if(p.x<-20)p.x+=W+40;
+      const a=0.10+p.z*0.32, L=p.len*(0.6+p.z); ctx.strokeStyle=`rgba(200,220,255,${a})`; ctx.lineWidth=0.6+p.z*1.1;
+      const dx=p.x+ox*p.z, dy=p.y+oy*p.z;
+      ctx.beginPath(); ctx.moveTo(dx,dy); ctx.lineTo(dx-ang*L*2.2, dy-L*2.2); ctx.stroke(); }
+  }
+  // snow
+  if(cfg.weather===1){
+    for(const p of snow){ p.ph+=0.02*dt; p.y+=p.sp*(0.4+p.z)*0.016*dt;
+      p.x+=(wind*(0.4+p.z)+Math.sin(p.ph)*0.6)*dt;
+      if(p.y>H+6){p.y=-6;p.x=rnd(0,W);} if(p.x>W+6)p.x=-6; if(p.x<-6)p.x=W+6;
+      const r=p.r*(0.6+p.z), a=0.45+p.z*0.5, dx=p.x+ox*p.z, dy=p.y+oy*p.z;
+      if(p.z>0.66){ ctx.globalAlpha=a*0.8; ctx.drawImage(glowSprite,dx-r*4,dy-r*4,r*8,r*8); }
+      else { ctx.globalAlpha=a; ctx.fillStyle='#eef3ff'; ctx.beginPath(); ctx.arc(dx,dy,r,0,6.2832); ctx.fill(); } }
+    ctx.globalAlpha=1;
+  }
+  // dust / embers
+  if(dust.length){
+    ctx.globalCompositeOperation='lighter';
+    const ember=cfg.weather===3;
+    for(const p of dust){ p.ph+=p.sp*0.03*dt; p.x+=(p.vx+wind*8)*0.016*dt; p.y+=p.vy*0.016*dt;
+      if(p.y<-10){p.y=H+10;p.x=rnd(0,W);} if(p.y>H+10){p.y=-10;} if(p.x<-10)p.x=W+10; if(p.x>W+10)p.x=-10;
+      const tw=0.4+0.6*(Math.sin(p.ph)*0.5+0.5), r=p.r, dx=p.x+ox*1.3, dy=p.y+oy*1.3;
+      ctx.globalAlpha=tw*(ember?0.8:0.5);
+      ctx.fillStyle=ember?'rgba(255,180,90,1)':'rgba(220,230,255,1)';
+      ctx.drawImage(glowSprite,dx-r*4,dy-r*4,r*8,r*8); }
+    ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
+  }
   requestAnimationFrame(frame);
 }
+applyGrade();
+vigEl.style.opacity=mix(0.2,1.0,cfg.vignette/100);
+grainEl.style.opacity=String(cfg.grain/100*0.09);
 resize();
 requestAnimationFrame(frame);
 </script>

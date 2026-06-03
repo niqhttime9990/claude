@@ -1,41 +1,40 @@
 {
-  "title": "Petrichor — Rain on Glass",
-  "description": "A beautiful night seen through a wet, fogged-up window. Animated droplets refract the lights behind the glass and trails slide down; your cursor wipes the fog clear. Ships with dreamy bokeh city-light scenes, or use your own image URL.",
+  "title": "Living Photo",
+  "description": "Turns a still image into a cinematic live wallpaper: slow drift + mouse parallax with real falling rain or snow, drifting fog, floating dust/embers, vignette, colour grade and film grain. Use your own photo (bg.jpg or an image URL).",
   "type": "web",
   "file": "index.html",
   "preview": "preview.jpg",
-  "tags": ["Abstract", "Relaxing", "Nature"],
+  "tags": ["Nature", "Relaxing", "Abstract"],
   "visibility": "private",
   "general": {
     "properties": {
-      "scene": {
-        "type": "combo", "text": "Scene (built-in)", "value": "0",
+      "image": { "type": "textinput", "text": "Your image URL (or put bg.jpg in this folder)", "value": "" },
+      "weather": {
+        "type": "combo", "text": "Weather", "value": "0",
         "options": [
-          { "label": "City lights", "value": "0" },
-          { "label": "Blue hour", "value": "1" },
-          { "label": "Amber", "value": "2" },
-          { "label": "Neon", "value": "3" },
-          { "label": "Forest", "value": "4" }
+          { "label": "Rain", "value": "0" },
+          { "label": "Snow", "value": "1" },
+          { "label": "Fog", "value": "2" },
+          { "label": "Embers", "value": "3" },
+          { "label": "None", "value": "4" }
         ]
       },
-      "image":      { "type": "textinput", "text": "Your image URL (optional)", "value": "" },
-      "rain":       { "type": "slider", "text": "Rain amount",     "value": 60, "min": 0, "max": 100, "fraction": false },
-      "frost":      { "type": "slider", "text": "Fogged glass",    "value": 55, "min": 0, "max": 100, "fraction": false },
-      "zoom":       { "type": "slider", "text": "Background zoom",  "value": 18, "min": 0, "max": 100, "fraction": false },
-      "brightness": { "type": "slider", "text": "Brightness",      "value": 52, "min": 0, "max": 100, "fraction": false },
-      "vignette":   { "type": "slider", "text": "Vignette",        "value": 60, "min": 0, "max": 100, "fraction": false },
-      "grain":      { "type": "slider", "text": "Film grain",      "value": 35, "min": 0, "max": 100, "fraction": false },
-      "tint": {
-        "type": "combo", "text": "Tone", "value": "0",
+      "intensity": { "type": "slider", "text": "Weather intensity", "value": 55, "min": 0, "max": 100, "fraction": false },
+      "fog":       { "type": "slider", "text": "Fog / mist",        "value": 35, "min": 0, "max": 100, "fraction": false },
+      "wind":      { "type": "slider", "text": "Wind",              "value": 50, "min": 0, "max": 100, "fraction": false },
+      "grade": {
+        "type": "combo", "text": "Colour grade", "value": "1",
         "options": [
-          { "label": "Natural", "value": "0" },
-          { "label": "Warm", "value": "1" },
-          { "label": "Mono", "value": "2" },
-          { "label": "Cool", "value": "3" }
+          { "label": "None", "value": "0" },
+          { "label": "Cool", "value": "1" },
+          { "label": "Warm", "value": "2" },
+          { "label": "Noir", "value": "3" }
         ]
       },
-      "parallax": { "type": "bool", "text": "Mouse parallax",        "value": true },
-      "wipe":     { "type": "bool", "text": "Cursor wipes the fog",  "value": true }
+      "vignette": { "type": "slider", "text": "Vignette",   "value": 58, "min": 0, "max": 100, "fraction": false },
+      "grain":    { "type": "slider", "text": "Film grain", "value": 30, "min": 0, "max": 100, "fraction": false },
+      "parallax": { "type": "bool", "text": "Mouse parallax", "value": true },
+      "drift":    { "type": "bool", "text": "Cinematic drift", "value": true }
     }
   }
 }

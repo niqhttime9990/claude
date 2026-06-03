@@ -1,48 +1,44 @@
 {
-  "scene": {
-    "type": "dropdown",
-    "text": "Scene (built-in)",
-    "value": 0,
-    "items": ["City lights", "Blue hour", "Amber", "Neon", "Forest"]
-  },
   "image": {
     "type": "textbox",
-    "text": "Your image URL (optional)",
+    "text": "Your image URL (or put bg.jpg in this folder)",
     "value": ""
   },
-  "rain": {
-    "type": "slider", "text": "Rain amount",
-    "value": 60, "min": 0, "max": 100, "step": 1
+  "weather": {
+    "type": "dropdown",
+    "text": "Weather",
+    "value": 0,
+    "items": ["Rain", "Snow", "Fog", "Embers", "None"]
   },
-  "frost": {
-    "type": "slider", "text": "Fogged glass",
+  "intensity": {
+    "type": "slider", "text": "Weather intensity",
     "value": 55, "min": 0, "max": 100, "step": 1
   },
-  "zoom": {
-    "type": "slider", "text": "Background zoom",
-    "value": 18, "min": 0, "max": 100, "step": 1
+  "fog": {
+    "type": "slider", "text": "Fog / mist",
+    "value": 35, "min": 0, "max": 100, "step": 1
   },
-  "brightness": {
-    "type": "slider", "text": "Brightness",
-    "value": 52, "min": 0, "max": 100, "step": 1
+  "wind": {
+    "type": "slider", "text": "Wind (left ↔ right)",
+    "value": 50, "min": 0, "max": 100, "step": 1
+  },
+  "grade": {
+    "type": "dropdown", "text": "Colour grade",
+    "value": 1,
+    "items": ["None", "Cool", "Warm", "Noir"]
   },
   "vignette": {
     "type": "slider", "text": "Vignette",
-    "value": 60, "min": 0, "max": 100, "step": 1
+    "value": 58, "min": 0, "max": 100, "step": 1
   },
   "grain": {
     "type": "slider", "text": "Film grain",
-    "value": 35, "min": 0, "max": 100, "step": 1
-  },
-  "tint": {
-    "type": "dropdown", "text": "Tone",
-    "value": 0,
-    "items": ["Natural", "Warm", "Mono", "Cool"]
+    "value": 30, "min": 0, "max": 100, "step": 1
   },
   "parallax": {
     "type": "checkbox", "text": "Mouse parallax", "value": true
   },
-  "wipe": {
-    "type": "checkbox", "text": "Cursor wipes the fog", "value": true
+  "drift": {
+    "type": "checkbox", "text": "Cinematic drift (slow zoom)", "value": true
   }
 }
