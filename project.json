@@ -1,43 +1,30 @@
 {
-  "title": "Liquid Light",
-  "description": "A real-time GPU fluid simulation — incompressible Navier–Stokes with vorticity and HDR bloom. Push glowing, swirling ink with your mouse; it self-stirs when idle, drifts through colour, and can react to music.",
+  "title": "Nocturne",
+  "description": "An original procedural engraved moonlit night — starfield, glowing moon, a distant gothic spire and a lone figure on misty ground, hand-stippled like a Doré engraving. Your cursor is a lantern that reveals the etching. Calm, melancholic, alive.",
   "type": "web",
   "file": "index.html",
   "preview": "preview.jpg",
-  "tags": ["Abstract", "Relaxing"],
+  "tags": ["Abstract", "Relaxing", "Nature"],
   "visibility": "private",
   "general": {
     "properties": {
-      "theme": {
+      "tint": {
         "type": "combo",
-        "text": "Colour theme",
+        "text": "Tone",
         "value": "0",
         "options": [
-          { "label": "Spectrum", "value": "0" },
-          { "label": "Fire", "value": "1" },
-          { "label": "Ocean", "value": "2" },
-          { "label": "Neon", "value": "3" },
-          { "label": "Pastel", "value": "4" },
-          { "label": "Mono (teal)", "value": "5" }
+          { "label": "Moonlit", "value": "0" },
+          { "label": "Sepia engraving", "value": "1" },
+          { "label": "Ink (B&W)", "value": "2" },
+          { "label": "Night blue", "value": "3" }
         ]
       },
-      "swirl":     { "type": "slider", "text": "Swirliness",   "value": 60, "min": 0, "max": 100, "fraction": false },
-      "fade":      { "type": "slider", "text": "Fade speed",   "value": 24, "min": 0, "max": 100, "fraction": false },
-      "splatSize": { "type": "slider", "text": "Brush size",   "value": 33, "min": 0, "max": 100, "fraction": false },
-      "glow":      { "type": "slider", "text": "Glow (bloom)", "value": 50, "min": 0, "max": 100, "fraction": false },
-      "quality": {
-        "type": "combo",
-        "text": "Quality",
-        "value": "1",
-        "options": [
-          { "label": "Low (best performance)", "value": "0" },
-          { "label": "Medium", "value": "1" },
-          { "label": "High (best looks)", "value": "2" }
-        ]
-      },
-      "auto":    { "type": "bool", "text": "Self-stir when idle", "value": true },
-      "audio":   { "type": "bool", "text": "React to music",      "value": true },
-      "shading": { "type": "bool", "text": "3D shading",          "value": true }
+      "exposure": { "type": "slider", "text": "Brightness",      "value": 50, "min": 0, "max": 100, "fraction": false },
+      "density":  { "type": "slider", "text": "Stipple density", "value": 50, "min": 0, "max": 100, "fraction": false },
+      "grain":    { "type": "slider", "text": "Film grain",      "value": 55, "min": 0, "max": 100, "fraction": false },
+      "parallax": { "type": "bool", "text": "Mouse parallax",  "value": true },
+      "lantern":  { "type": "bool", "text": "Cursor lantern",  "value": true },
+      "audio":    { "type": "bool", "text": "React to music",  "value": true }
     }
   }
 }

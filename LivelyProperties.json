@@ -1,49 +1,38 @@
 {
-  "theme": {
+  "tint": {
     "type": "dropdown",
-    "text": "Colour theme",
+    "text": "Tone",
     "value": 0,
-    "items": ["Spectrum", "Fire", "Ocean", "Neon", "Pastel", "Mono (teal)"]
+    "items": ["Moonlit", "Sepia engraving", "Ink (B&W)", "Night blue"]
   },
-  "swirl": {
+  "exposure": {
     "type": "slider",
-    "text": "Swirliness",
-    "value": 60, "min": 0, "max": 100, "step": 1
-  },
-  "fade": {
-    "type": "slider",
-    "text": "Fade speed",
-    "value": 24, "min": 0, "max": 100, "step": 1
-  },
-  "splatSize": {
-    "type": "slider",
-    "text": "Brush size",
-    "value": 33, "min": 0, "max": 100, "step": 1
-  },
-  "glow": {
-    "type": "slider",
-    "text": "Glow (bloom)",
+    "text": "Brightness",
     "value": 50, "min": 0, "max": 100, "step": 1
   },
-  "quality": {
-    "type": "dropdown",
-    "text": "Quality",
-    "value": 1,
-    "items": ["Low (best performance)", "Medium", "High (best looks)"]
+  "density": {
+    "type": "slider",
+    "text": "Stipple density",
+    "value": 50, "min": 0, "max": 100, "step": 1
   },
-  "auto": {
+  "grain": {
+    "type": "slider",
+    "text": "Film grain",
+    "value": 55, "min": 0, "max": 100, "step": 1
+  },
+  "parallax": {
     "type": "checkbox",
-    "text": "Self-stir when idle",
+    "text": "Mouse parallax",
+    "value": true
+  },
+  "lantern": {
+    "type": "checkbox",
+    "text": "Cursor lantern",
     "value": true
   },
   "audio": {
     "type": "checkbox",
     "text": "React to music",
-    "value": true
-  },
-  "shading": {
-    "type": "checkbox",
-    "text": "3D shading",
     "value": true
   }
 }

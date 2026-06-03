@@ -1,27 +1,31 @@
-# Liquid Light 🌊
+# Nocturne 🌙
 
-A real-time **GPU fluid simulation** live wallpaper. Move your mouse to push
-glowing, swirling ink — real fluid physics (incompressible Navier–Stokes with
-vorticity) rendered with HDR bloom. It stirs itself when idle, drifts through
-colour, and can react to music.
+An original, procedural **engraved moonlit night** — a live wallpaper for the
+dark, melancholic, Doré / Dark-Souls aesthetic. A vast starfield, a glowing
+moon, a distant gothic spire and a lone hooded figure on misty, moonlit ground,
+all rendered as a hand-stippled engraving. Drifting stars, the odd shooting
+star, slow fog. Your cursor is a **lantern** that reveals the etching around it.
+
+Not a copy of anything — it's a single hand-written WebGL shader.
 
 ## 👉 The wallpaper is **`index.html`**
-
-That is the only file you open or import. Everything else is just a helper:
 
 | File | What it's for |
 |------|---------------|
 | **`index.html`** | **The wallpaper. This is the one.** |
-| `LivelyProperties.json` | Adds the settings panel in Lively |
-| `project.json` | Adds the settings panel in Wallpaper Engine |
-| `preview.jpg` | The thumbnail / a preview of how it looks |
+| `LivelyProperties.json` | Settings panel in Lively |
+| `project.json` | Settings panel in Wallpaper Engine |
+| `preview.jpg` | Thumbnail / preview |
 
 ![preview](preview.jpg)
 
 ## Try it instantly
 
-Open `index.html` in any browser (needs WebGL, which is on by default), or view
-it live: https://htmlpreview.github.io/?https://github.com/niqhttime9990/claude/blob/main/index.html
+Open `index.html` in any browser (needs WebGL, on by default), or view it live:
+https://htmlpreview.github.io/?https://github.com/niqhttime9990/claude/blob/main/index.html
+
+Move your mouse — the lantern reveals the world, and the scene drifts with
+parallax.
 
 ## Set it as your Windows wallpaper (Lively — free)
 
@@ -32,8 +36,15 @@ it live: https://htmlpreview.github.io/?https://github.com/niqhttime9990/claude/
 
 ## Settings
 
-Colour theme (Spectrum · Fire · Ocean · Neon · Pastel · Mono) · Swirliness ·
-Fade speed · Brush size · Glow (bloom) · Quality · Self-stir when idle · React to
-music · 3D shading.
+| Setting | What it does |
+|---|---|
+| **Tone** | Moonlit · Sepia engraving · Ink (B&W) · Night blue |
+| **Brightness** | Overall exposure |
+| **Stipple density** | How dense the engraved dots are |
+| **Film grain** | Subtle paper-grain texture |
+| **Mouse parallax** | Scene shifts with the cursor for depth |
+| **Cursor lantern** | A light that reveals the etching as you move |
+| **React to music** | The moon breathes with system audio |
 
-Single file, zero dependencies. Stam *Stable Fluids* method, GPU-accelerated. MIT.
+Single WebGL fragment shader, zero dependencies. Frame-rate capped and pauses
+when the desktop is hidden. MIT.
