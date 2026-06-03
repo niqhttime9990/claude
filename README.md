@@ -8,13 +8,20 @@ step, no libraries, no network. Just open it.
 
 ![hint](https://img.shields.io/badge/deps-zero-8be9c0) ![hint](https://img.shields.io/badge/files-1-7aa2ff)
 
-## Run it
+## See it (no coding needed)
 
-```bash
-open index.html        # macOS
-xdg-open index.html    # Linux
-# or just double-click the file
-```
+**Easiest — instant, zero setup.** Click this link:
+
+👉 https://htmlpreview.github.io/?https://github.com/niqhttime9990/claude/blob/main/index.html
+
+**Best quality — your own live website (about 4 clicks).** Turn on free GitHub Pages:
+
+1. Go to the repo's **Settings** tab → **Pages** (left sidebar).
+2. Under *Branch*, pick **main** and **/ (root)**, then **Save**.
+3. Wait ~1 minute, refresh. GitHub shows a link like
+   `https://niqhttime9990.github.io/claude/` — that's your live page, shareable with anyone.
+
+**On your own computer.** Download `index.html` and double-click it — it opens in your browser. That's it.
 
 ## Controls
 
