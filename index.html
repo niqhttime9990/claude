@@ -65,7 +65,8 @@
   <div class="hint">
     <b>Move</b> — bend the field &nbsp;·&nbsp; <b>Click</b> — spawn a vortex<br>
     <b>Space</b> attract/repel &nbsp;·&nbsp; <b>R</b> reset &nbsp;·&nbsp; <b>P</b> palette<br>
-    <b>S</b> save png &nbsp;·&nbsp; <b>H</b> hide panel &nbsp;·&nbsp; <b>F</b> fullscreen
+    <b>T</b> spell a word &nbsp;·&nbsp; <b>S</b> save png &nbsp;·&nbsp; <b>H</b> hide<br>
+    <b>F</b> fullscreen
   </div>
 </div>
 <button id="toggle">☰ controls</button>
@@ -144,6 +145,47 @@ let particles = [];
 let vortices = [];   // {x,y,strength,life,spin}
 let t = 0;           // field time
 let hueShift = 0;
+
+/* ── Text formation: particles fly in and spell a word, then dissolve ───── */
+const MESSAGES = ['HELLO', 'FLOW', 'UNIVERSE', '✨', 'PLAY', 'BREATHE'];
+let msgIndex = 0;
+let textPoints = [];   // {x,y} sampled from rendered glyphs
+let forming = 0;       // frames remaining in the "held" formation
+
+function sampleText(str) {
+  // Render text big & centred to an offscreen canvas, then scan for ink.
+  const off = document.createElement('canvas');
+  off.width = W; off.height = H;
+  const o = off.getContext('2d');
+  let size = Math.min(W * 0.92 / Math.max(1, str.length * 0.62), H * 0.34);
+  size = Math.max(40, size);
+  o.fillStyle = '#fff';
+  o.textAlign = 'center';
+  o.textBaseline = 'middle';
+  o.font = `900 ${size}px ui-sans-serif, system-ui, "Segoe UI", Arial, sans-serif`;
+  o.fillText(str, W / 2, H / 2);
+
+  const img = o.getImageData(0, 0, W, H).data;
+  const pts = [];
+  const gap = Math.max(3, Math.round(Math.min(W, H) / 220)); // sampling density
+  for (let y = 0; y < H; y += gap) {
+    for (let x = 0; x < W; x += gap) {
+      if (img[(y * W + x) * 4 + 3] > 128) {
+        pts.push({ x: x + (Math.random() - 0.5) * gap, y: y + (Math.random() - 0.5) * gap });
+      }
+    }
+  }
+  // shuffle so assignment to particles looks organic
+  for (let i = pts.length - 1; i > 0; i--) {
+    const j = (Math.random() * (i + 1)) | 0; [pts[i], pts[j]] = [pts[j], pts[i]];
+  }
+  return pts;
+}
+
+function formWord(str) {
+  textPoints = sampleText(str);
+  forming = 150;  // ~2.5s held, then release
+}
 const mouse = { x: -1e4, y: -1e4, px: -1e4, py: -1e4, vx: 0, vy: 0, active: false };
 
 function makeParticle(p) {
@@ -177,6 +219,7 @@ function step(dt) {
   const pal = PALETTES[cfg.palette];
   const sp = cfg.speed * 0.018;
   hueShift = (hueShift + cfg.hue * 0.0006 * dt) % 1;
+  if (forming > 0) forming -= dt;
 
   // vortices decay
   for (let i = vortices.length - 1; i >= 0; i--) {
@@ -191,8 +234,30 @@ function step(dt) {
   ctx.lineWidth = lineWidth;
   ctx.lineCap = 'round';
 
+  // how strongly text formation overrides the flow this frame (ease in/out)
+  const tp = textPoints.length;
+  const formK = forming > 0 ? Math.min(1, forming / 60) * Math.min(1, (forming) / 1) : 0;
+
   for (let i = 0, L = particles.length; i < L; i++) {
     const p = particles[i];
+
+    // ── text formation: steer assigned particles toward their glyph point ──
+    if (formK > 0 && tp > 0) {
+      const target = textPoints[i % tp];
+      const dxT = target.x - p.x, dyT = target.y - p.y;
+      const ease = 0.16 * formK;
+      p.px = p.x; p.py = p.y;
+      p.x += dxT * ease + (Math.random() - 0.5) * 0.4;
+      p.y += dyT * ease + (Math.random() - 0.5) * 0.4;
+      p.vx = p.x - p.px; p.vy = p.y - p.py;
+      const v = Math.min(1, Math.hypot(dxT, dyT) / 60);
+      const pal = PALETTES[cfg.palette];
+      const hue = (pal.base + (p.hue * pal.spread) + hueShift * 360) % 360;
+      ctx.strokeStyle = `hsla(${hue},85%,${58 + v * 30}%,${0.6 - v * 0.25})`;
+      ctx.beginPath(); ctx.moveTo(p.px, p.py); ctx.lineTo(p.x, p.y); ctx.stroke();
+      continue;
+    }
+
     const a = fieldAngle(p.x, p.y);
     let ax = Math.cos(a), ay = Math.sin(a);
 
@@ -318,6 +383,7 @@ window.addEventListener('keydown', e => {
   if (k === ' ') { cfg.attract *= -1; e.preventDefault(); }
   else if (k === 'r') { resize(); rebuild(cfg.count); vortices.length = 0; }
   else if (k === 'p') { cfg.palette = (cfg.palette + 1) % PALETTES.length; }
+  else if (k === 't') { msgIndex = (msgIndex + 1) % MESSAGES.length; formWord(MESSAGES[msgIndex]); }
   else if (k === 's') savePNG();
   else if (k === 'h') togglePanel();
   else if (k === 'f') toggleFull();
@@ -365,6 +431,7 @@ bind('hue',   'hue',   v => v + '%');
 /* ── Go ─────────────────────────────────────────────────────────────────── */
 resize();
 rebuild(cfg.count);
+formWord(MESSAGES[0]);   // greet on load: particles fly in and spell "HELLO"
 requestAnimationFrame(frame);
 </script>
 </body>
