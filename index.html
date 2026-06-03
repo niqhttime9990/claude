@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Flow Universe — an interactive particle field</title>
+<style>
+  :root { color-scheme: dark; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; background: #05060a; }
+  #c { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
+
+  .panel {
+    position: fixed; top: 16px; left: 16px;
+    font: 12px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color: #cdd6ff; background: rgba(12,14,24,0.55);
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    border: 1px solid rgba(140,160,255,0.18);
+    border-radius: 14px; padding: 14px 16px; width: 232px;
+    user-select: none; z-index: 10;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    transition: opacity .4s ease, transform .4s ease;
+  }
+  .panel h1 { font-size: 13px; letter-spacing: .12em; text-transform: uppercase;
+    color: #fff; margin-bottom: 2px; font-weight: 700; }
+  .panel .sub { color: #7c86b8; margin-bottom: 12px; font-size: 11px; }
+  .row { display: flex; align-items: center; justify-content: space-between; margin: 9px 0; gap: 10px; }
+  .row label { color: #9aa4d6; flex: 0 0 auto; }
+  .row .val { color: #8be9c0; min-width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+  input[type=range] { -webkit-appearance: none; appearance: none; flex: 1;
+    height: 4px; border-radius: 4px; background: rgba(140,160,255,.22); outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none;
+    width: 14px; height: 14px; border-radius: 50%; cursor: pointer;
+    background: linear-gradient(135deg,#8be9c0,#7aa2ff); box-shadow: 0 0 10px rgba(122,162,255,.7); }
+  input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border: none; border-radius: 50%;
+    cursor: pointer; background: #8be9c0; box-shadow: 0 0 10px rgba(122,162,255,.7); }
+  .hint { margin-top: 12px; padding-top: 11px; border-top: 1px solid rgba(140,160,255,.14);
+    color: #6b75a8; font-size: 10.5px; line-height: 1.7; }
+  .hint b { color: #aab4e6; font-weight: 600; }
+  .panel.hidden { opacity: 0; transform: translateX(-12px); pointer-events: none; }
+  #toggle { position: fixed; top: 16px; left: 16px; z-index: 11;
+    font: 11px ui-monospace, monospace; color: #cdd6ff;
+    background: rgba(12,14,24,0.55); border: 1px solid rgba(140,160,255,.18);
+    border-radius: 10px; padding: 7px 10px; cursor: pointer; backdrop-filter: blur(10px);
+    opacity: 0; transition: opacity .3s; }
+  #toggle.show { opacity: 1; }
+  .credit { position: fixed; bottom: 12px; right: 14px; z-index: 10;
+    font: 10px ui-monospace, monospace; color: #46507e; user-select: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div class="panel" id="panel">
+  <h1>Flow Universe</h1>
+  <div class="sub">a living vector field</div>
+
+  <div class="row"><label>Particles</label><input id="count" type="range" min="500" max="9000" step="100"><span class="val" id="countV"></span></div>
+  <div class="row"><label>Flow speed</label><input id="speed" type="range" min="0" max="100"><span class="val" id="speedV"></span></div>
+  <div class="row"><label>Turbulence</label><input id="turb" type="range" min="0" max="100"><span class="val" id="turbV"></span></div>
+  <div class="row"><label>Trail</label><input id="trail" type="range" min="0" max="100"><span class="val" id="trailV"></span></div>
+  <div class="row"><label>Hue drift</label><input id="hue" type="range" min="0" max="100"><span class="val" id="hueV"></span></div>
+
+  <div class="hint">
+    <b>Move</b> — bend the field &nbsp;·&nbsp; <b>Click</b> — spawn a vortex<br>
+    <b>Space</b> attract/repel &nbsp;·&nbsp; <b>R</b> reset &nbsp;·&nbsp; <b>P</b> palette<br>
+    <b>S</b> save png &nbsp;·&nbsp; <b>H</b> hide panel &nbsp;·&nbsp; <b>F</b> fullscreen
+  </div>
+</div>
+<button id="toggle">☰ controls</button>
+<div class="credit">drag · click · space · p · s</div>
+
+<script>
+"use strict";
+/* ──────────────────────────────────────────────────────────────────────────
+   FLOW UNIVERSE
+   A dependency-free interactive particle field. Thousands of agents ride an
+   animated 3D-ish curl/flow field built from value-noise. The mouse warps the
+   field, clicks drop spinning vortices, and the whole thing is rendered with
+   additive glow trails. Pure canvas 2D, ~1 file, no build step.
+   ────────────────────────────────────────────────────────────────────────── */
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d', { alpha: false });
+
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = canvas.clientWidth; H = canvas.clientHeight;
+  canvas.width  = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.fillStyle = '#05060a';
+  ctx.fillRect(0, 0, W, H);
+}
+window.addEventListener('resize', resize);
+
+/* ── Value-noise field (smooth, tileable-ish, fast) ─────────────────────── */
+const PERM = new Uint8Array(512);
+(function seedNoise(seed) {
+  const p = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) p[i] = i;
+  // xorshift shuffle
+  let s = seed >>> 0 || 1;
+  const rnd = () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return (s >>> 0) / 4294967296; };
+  for (let i = 255; i > 0; i--) { const j = (rnd() * (i + 1)) | 0; [p[i], p[j]] = [p[j], p[i]]; }
+  for (let i = 0; i < 512; i++) PERM[i] = p[i & 255];
+})(Date.now());
+
+const fade = t => t * t * t * (t * (t * 6 - 15) + 10);
+const lerp = (a, b, t) => a + (b - a) * t;
+function grad(h, x, y) { // pseudo-gradient from hash
+  const u = h & 1 ? x : -x, v = h & 2 ? y : -y; return u + v;
+}
+function noise2(x, y) {
+  const X = Math.floor(x) & 255, Y = Math.floor(y) & 255;
+  x -= Math.floor(x); y -= Math.floor(y);
+  const u = fade(x), v = fade(y);
+  const A = PERM[X] + Y, B = PERM[X + 1] + Y;
+  return lerp(
+    lerp(grad(PERM[A], x, y),     grad(PERM[B], x - 1, y),     u),
+    lerp(grad(PERM[A + 1], x, y - 1), grad(PERM[B + 1], x - 1, y - 1), u),
+    v
+  );
+}
+
+/* ── Palettes (HSL anchors) ─────────────────────────────────────────────── */
+const PALETTES = [
+  { name: 'aurora',  base: 165, spread: 95 },
+  { name: 'ember',   base: 8,   spread: 55 },
+  { name: 'nebula',  base: 265, spread: 120 },
+  { name: 'ocean',   base: 195, spread: 70 },
+  { name: 'magma',   base: 330, spread: 80 },
+  { name: 'spring',  base: 95,  spread: 90 },
+];
+
+/* ── State ──────────────────────────────────────────────────────────────── */
+const cfg = {
+  count: 3800, speed: 52, turb: 38, trail: 88, hue: 30,
+  attract: 1, palette: 0,
+};
+let particles = [];
+let vortices = [];   // {x,y,strength,life,spin}
+let t = 0;           // field time
+let hueShift = 0;
+const mouse = { x: -1e4, y: -1e4, px: -1e4, py: -1e4, vx: 0, vy: 0, active: false };
+
+function makeParticle(p) {
+  p = p || {};
+  p.x = Math.random() * W; p.y = Math.random() * H;
+  p.px = p.x; p.py = p.y;
+  p.vx = 0; p.vy = 0;
+  p.life = 60 + Math.random() * 240;
+  p.maxLife = p.life;
+  p.hue = Math.random();        // 0..1 across palette spread
+  p.speed = 0.6 + Math.random() * 0.8;
+  return p;
+}
+function rebuild(n) {
+  particles.length = 0;
+  for (let i = 0; i < n; i++) particles.push(makeParticle({}));
+}
+
+/* ── Field sampling: layered value noise → angle ────────────────────────── */
+function fieldAngle(x, y) {
+  const scale = 0.0016 + cfg.turb * 0.00004;
+  let n = noise2(x * scale, y * scale + t);
+  n += 0.5 * noise2(x * scale * 2.3 + t * 0.7, y * scale * 2.3);
+  n += 0.25 * noise2(x * scale * 4.7, y * scale * 4.7 - t * 0.5);
+  // map to a rich angular range so flows curl back on themselves
+  return n * Math.PI * 1.8;
+}
+
+/* ── Simulation step ────────────────────────────────────────────────────── */
+function step(dt) {
+  const pal = PALETTES[cfg.palette];
+  const sp = cfg.speed * 0.018;
+  hueShift = (hueShift + cfg.hue * 0.0006 * dt) % 1;
+
+  // vortices decay
+  for (let i = vortices.length - 1; i >= 0; i--) {
+    const v = vortices[i]; v.life -= dt; if (v.life <= 0) vortices.splice(i, 1);
+  }
+
+  // mouse velocity (for field warping)
+  mouse.vx = mouse.x - mouse.px; mouse.vy = mouse.y - mouse.py;
+  mouse.px = mouse.x; mouse.py = mouse.y;
+
+  const lineWidth = 1.1;
+  ctx.lineWidth = lineWidth;
+  ctx.lineCap = 'round';
+
+  for (let i = 0, L = particles.length; i < L; i++) {
+    const p = particles[i];
+    const a = fieldAngle(p.x, p.y);
+    let ax = Math.cos(a), ay = Math.sin(a);
+
+    // mouse interaction: attract / repel + swirl from cursor motion
+    const dxm = p.x - mouse.x, dym = p.y - mouse.y;
+    const dm2 = dxm * dxm + dym * dym;
+    if (mouse.active && dm2 < 240 * 240) {
+      const dm = Math.sqrt(dm2) + 0.001;
+      const f = (1 - dm / 240) * 0.9;
+      ax += (-dxm / dm) * f * cfg.attract;
+      ay += (-dym / dm) * f * cfg.attract;
+      // swirl following the cursor's own motion
+      ax += (-dym / dm) * (mouse.vx * 0.012);
+      ay += ( dxm / dm) * (mouse.vy * 0.012);
+    }
+
+    // vortices
+    for (let k = 0; k < vortices.length; k++) {
+      const v = vortices[k];
+      const dx = p.x - v.x, dy = p.y - v.y, d2 = dx * dx + dy * dy;
+      const R = v.radius;
+      if (d2 < R * R) {
+        const d = Math.sqrt(d2) + 0.001;
+        const f = (1 - d / R) * v.strength * (v.life / v.maxLife);
+        ax += (-dy / d) * f * v.spin;      // tangential
+        ay += ( dx / d) * f * v.spin;
+        ax += (-dx / d) * f * 0.25;        // slight inward pull
+        ay += (-dy / d) * f * 0.25;
+      }
+    }
+
+    // integrate
+    const acc = sp * p.speed;
+    p.vx = p.vx * 0.86 + ax * acc;
+    p.vy = p.vy * 0.86 + ay * acc;
+    p.px = p.x; p.py = p.y;
+    p.x += p.vx; p.y += p.vy;
+
+    // colour from local speed + palette
+    const v = Math.min(1, Math.hypot(p.vx, p.vy) / 3.2);
+    const hue = (pal.base + (p.hue * pal.spread) + hueShift * 360) % 360;
+    const light = 38 + v * 42;
+    const sat = 80 - v * 18;
+    const alpha = 0.55 * (p.life / p.maxLife) + 0.18;
+    ctx.strokeStyle = `hsla(${hue},${sat}%,${light}%,${alpha})`;
+
+    ctx.beginPath();
+    ctx.moveTo(p.px, p.py);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+
+    // recycle when offscreen or aged out
+    p.life -= dt;
+    if (p.x < -20 || p.x > W + 20 || p.y < -20 || p.y > H + 20 || p.life <= 0) {
+      makeParticle(p);
+      if (Math.random() < 0.5) { // some respawn near edges for inflow feel
+        const e = Math.random() * 4 | 0;
+        if (e === 0) { p.x = -10; p.y = Math.random() * H; }
+        else if (e === 1) { p.x = W + 10; p.y = Math.random() * H; }
+        else if (e === 2) { p.y = -10; p.x = Math.random() * W; }
+        else { p.y = H + 10; p.x = Math.random() * W; }
+        p.px = p.x; p.py = p.y;
+      }
+    }
+  }
+}
+
+/* ── Render loop ────────────────────────────────────────────────────────── */
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(2.5, (now - last) / 16.667);
+  last = now;
+  t += dt * cfg.speed * 0.00018 * (1 + cfg.turb * 0.01);
+
+  // fade previous frame for trails (additive-ish via low-alpha fill)
+  const fadeA = 1 - cfg.trail / 100 * 0.985 - 0.012;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = `rgba(5,6,10,${Math.max(0.012, fadeA)})`;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.globalCompositeOperation = 'lighter';
+  step(dt);
+  ctx.globalCompositeOperation = 'source-over';
+
+  // draw vortex cores
+  for (const v of vortices) {
+    const a = (v.life / v.maxLife) * 0.5;
+    const g = ctx.createRadialGradient(v.x, v.y, 0, v.x, v.y, 26);
+    g.addColorStop(0, `rgba(180,210,255,${a})`);
+    g.addColorStop(1, 'rgba(180,210,255,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(v.x, v.y, 26, 0, 7); ctx.fill();
+  }
+
+  requestAnimationFrame(frame);
+}
+
+/* ── Input ──────────────────────────────────────────────────────────────── */
+function setMouse(e) {
+  const r = canvas.getBoundingClientRect();
+  const src = e.touches ? e.touches[0] : e;
+  mouse.x = src.clientX - r.left; mouse.y = src.clientY - r.top;
+  mouse.active = true;
+}
+canvas.addEventListener('mousemove', setMouse);
+canvas.addEventListener('mouseleave', () => mouse.active = false);
+canvas.addEventListener('touchmove', e => { setMouse(e); e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchstart', e => { setMouse(e); spawnVortex(mouse.x, mouse.y); }, { passive: false });
+
+function spawnVortex(x, y) {
+  vortices.push({
+    x, y, radius: 150 + Math.random() * 120,
+    strength: 2.2 + Math.random() * 1.6,
+    spin: Math.random() < 0.5 ? 1 : -1,
+    life: 180, maxLife: 180,
+  });
+  if (vortices.length > 12) vortices.shift();
+}
+canvas.addEventListener('mousedown', e => { setMouse(e); spawnVortex(mouse.x, mouse.y); });
+
+window.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (k === ' ') { cfg.attract *= -1; e.preventDefault(); }
+  else if (k === 'r') { resize(); rebuild(cfg.count); vortices.length = 0; }
+  else if (k === 'p') { cfg.palette = (cfg.palette + 1) % PALETTES.length; }
+  else if (k === 's') savePNG();
+  else if (k === 'h') togglePanel();
+  else if (k === 'f') toggleFull();
+});
+
+function savePNG() {
+  // composite onto opaque bg already (alpha:false) → direct export
+  const a = document.createElement('a');
+  a.download = `flow-universe-${Date.now()}.png`;
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+}
+function toggleFull() {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+  else document.exitFullscreen?.();
+}
+
+/* ── Control panel wiring ───────────────────────────────────────────────── */
+const panel = document.getElementById('panel');
+const toggleBtn = document.getElementById('toggle');
+function togglePanel() {
+  const hidden = panel.classList.toggle('hidden');
+  toggleBtn.classList.toggle('show', hidden);
+}
+toggleBtn.addEventListener('click', togglePanel);
+
+function bind(id, key, fmt) {
+  const el = document.getElementById(id);
+  const out = document.getElementById(id + 'V');
+  el.value = cfg[key];
+  const upd = () => {
+    cfg[key] = +el.value;
+    out.textContent = fmt ? fmt(cfg[key]) : cfg[key];
+    if (key === 'count') rebuild(cfg.count);
+  };
+  el.addEventListener('input', upd);
+  upd();
+}
+bind('count', 'count');
+bind('speed', 'speed', v => v + '%');
+bind('turb',  'turb',  v => v + '%');
+bind('trail', 'trail', v => v + '%');
+bind('hue',   'hue',   v => v + '%');
+
+/* ── Go ─────────────────────────────────────────────────────────────────── */
+resize();
+rebuild(cfg.count);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
