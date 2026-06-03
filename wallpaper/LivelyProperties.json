@@ -1,0 +1,33 @@
+{
+  "theme": {
+    "type": "dropdown",
+    "text": "Colour theme",
+    "value": 0,
+    "items": ["Auto (time of day)", "Aurora", "Sunset", "Ocean", "Nebula", "Mono"]
+  },
+  "speed": {
+    "type": "slider",
+    "text": "Flow speed",
+    "value": 50, "min": 0, "max": 100, "step": 1
+  },
+  "brightness": {
+    "type": "slider",
+    "text": "Aurora intensity",
+    "value": 70, "min": 0, "max": 100, "step": 1
+  },
+  "stars": {
+    "type": "checkbox",
+    "text": "Show starfield",
+    "value": true
+  },
+  "audio": {
+    "type": "checkbox",
+    "text": "React to music",
+    "value": true
+  },
+  "interactive": {
+    "type": "checkbox",
+    "text": "Mouse interaction",
+    "value": true
+  }
+}

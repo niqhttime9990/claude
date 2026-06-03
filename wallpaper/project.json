@@ -1,0 +1,31 @@
+{
+  "title": "Aurora Drift",
+  "description": "Ambient interactive aurora over a parallax starfield. Sky shifts with the time of day; reacts to mouse and music.",
+  "type": "web",
+  "file": "index.html",
+  "preview": "preview.jpg",
+  "tags": ["Abstract", "Relaxing", "Nature"],
+  "visibility": "private",
+  "general": {
+    "properties": {
+      "theme": {
+        "type": "combo",
+        "text": "Colour theme",
+        "value": "0",
+        "options": [
+          { "label": "Auto (time of day)", "value": "0" },
+          { "label": "Aurora", "value": "1" },
+          { "label": "Sunset", "value": "2" },
+          { "label": "Ocean", "value": "3" },
+          { "label": "Nebula", "value": "4" },
+          { "label": "Mono", "value": "5" }
+        ]
+      },
+      "speed":       { "type": "slider", "text": "Flow speed",       "value": 50, "min": 0, "max": 100, "fraction": false },
+      "brightness":  { "type": "slider", "text": "Aurora intensity", "value": 70, "min": 0, "max": 100, "fraction": false },
+      "stars":       { "type": "bool",   "text": "Show starfield",   "value": true },
+      "audio":       { "type": "bool",   "text": "React to music",   "value": true },
+      "interactive": { "type": "bool",   "text": "Mouse interaction","value": true }
+    }
+  }
+}
