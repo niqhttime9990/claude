@@ -1,53 +1,39 @@
-# Flow Universe
+# Liquid Light 🌊
 
-An interactive, dependency-free particle field that lives in your browser.
+A real-time **GPU fluid simulation** live wallpaper. Move your mouse to push
+glowing, swirling ink — real fluid physics (incompressible Navier–Stokes with
+vorticity) rendered with HDR bloom. It stirs itself when idle, drifts through
+colour, and can react to music.
 
-Thousands of particles ride an animated **value-noise flow field**, leaving
-glowing additive trails. The whole thing is a single `index.html` — no build
-step, no libraries, no network. Just open it.
+## 👉 The wallpaper is **`index.html`**
 
-![hint](https://img.shields.io/badge/deps-zero-8be9c0) ![hint](https://img.shields.io/badge/files-1-7aa2ff)
+That is the only file you open or import. Everything else is just a helper:
 
-## See it (no coding needed)
+| File | What it's for |
+|------|---------------|
+| **`index.html`** | **The wallpaper. This is the one.** |
+| `LivelyProperties.json` | Adds the settings panel in Lively |
+| `project.json` | Adds the settings panel in Wallpaper Engine |
+| `preview.jpg` | The thumbnail / a preview of how it looks |
 
-**Easiest — instant, zero setup.** Click this link:
+![preview](preview.jpg)
 
-👉 https://htmlpreview.github.io/?https://github.com/niqhttime9990/claude/blob/main/index.html
+## Try it instantly
 
-**Best quality — your own live website (about 4 clicks).** Turn on free GitHub Pages:
+Open `index.html` in any browser (needs WebGL, which is on by default), or view
+it live: https://htmlpreview.github.io/?https://github.com/niqhttime9990/claude/blob/main/index.html
 
-1. Go to the repo's **Settings** tab → **Pages** (left sidebar).
-2. Under *Branch*, pick **main** and **/ (root)**, then **Save**.
-3. Wait ~1 minute, refresh. GitHub shows a link like
-   `https://niqhttime9990.github.io/claude/` — that's your live page, shareable with anyone.
+## Set it as your Windows wallpaper (Lively — free)
 
-**On your own computer.** Download `index.html` and double-click it — it opens in your browser. That's it.
+1. **Download** this repo: green **Code** button → **Download ZIP**, then unzip.
+2. **Install Lively Wallpaper** (free): https://www.rocksdanister.github.io/lively/
+3. In Lively: **＋ Add Wallpaper → Browse → pick `index.html` → click it to apply.**
+4. Click the **⚙ / wrench** on the thumbnail for settings.
 
-## Controls
+## Settings
 
-| Input | Action |
-|-------|--------|
-| **Move mouse** | Warp the flow field; the cursor's motion adds swirl |
-| **Click / tap** | Drop a spinning vortex that pulls particles into orbit |
-| **Space** | Flip the cursor between attract and repel |
-| **R** | Reset particles and clear vortices |
-| **P** | Cycle colour palette (aurora · ember · nebula · ocean · magma · spring) |
-| **S** | Save the current frame as a PNG |
-| **H** | Hide / show the control panel |
-| **F** | Fullscreen |
+Colour theme (Spectrum · Fire · Ocean · Neon · Pastel · Mono) · Swirliness ·
+Fade speed · Brush size · Glow (bloom) · Quality · Self-stir when idle · React to
+music · 3D shading.
 
-The side panel tunes particle count, flow speed, turbulence, trail length, and
-hue drift live.
-
-## How it works
-
-- A custom **value-noise** generator (xorshift-seeded permutation table) is
-  sampled at three octaves and advanced over time to make a field that curls
-  and breathes.
-- Each particle reads the field angle at its position, blends in forces from the
-  mouse and any active vortices, and integrates with velocity damping.
-- Rendering uses `globalCompositeOperation = 'lighter'` for additive glow, with a
-  low-alpha fill each frame producing motion trails. Colour comes from each
-  particle's local speed mapped onto the active palette.
-
-All in ~300 lines of vanilla JS and Canvas 2D.
+Single file, zero dependencies. Stam *Stable Fluids* method, GPU-accelerated. MIT.
