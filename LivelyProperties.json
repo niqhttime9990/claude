@@ -1,8 +1,8 @@
 {
   "image": {
     "type": "textbox",
-    "text": "Your image URL (or put bg.jpg in this folder)",
-    "value": ""
+    "text": "Your image URL (or replace bg.jpg)",
+    "value": "https://raw.githubusercontent.com/niqhttime9990/claude/main/bg.jpg"
   },
   "fit": {
     "type": "dropdown",

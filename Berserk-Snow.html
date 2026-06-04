@@ -43,7 +43,7 @@
    ────────────────────────────────────────────────────────────────────────── */
 
 const cfg = {
-  image: '',        // uses the bundled bg.jpg (the 4K upright Berserk image)
+  image: 'https://raw.githubusercontent.com/niqhttime9990/claude/main/bg.jpg', // local bg.jpg wins; this is the browser fallback
   weather: 1,       // 0 Rain  1 Snow  2 Mist  3 Embers  4 None
   intensity: 72,    // 0..100
   fog: 30,          // 0..100 drifting mist / blowing snow haze
@@ -93,9 +93,9 @@ function loadImageChain(urls, i){
   img.onerror=()=> loadImageChain(urls, i+1);
   img.src=u;
 }
-function setBg(url){ loadImageChain((url&&url.trim()) ? candidates(url) : ['bg.jpg']); }
-// init: a local bg.jpg always wins; otherwise the configured image URL (full-res first)
-loadImageChain(['bg.jpg', ...candidates(cfg.image)]);
+function setBg(url){ loadImageChain(['bg.jpg', ...candidates((url||'').trim())]); }
+// init: a local bg.jpg always wins; otherwise pull the 4K image from GitHub
+setBg(cfg.image);
 
 /* ── Colour grade ───────────────────────────────────────────────────────── */
 function applyGrade(){
@@ -164,7 +164,7 @@ addEventListener('touchmove',e=>{ const t=e.touches[0]; mouse.tx=t.clientX/inner
 
 const mix=(a,b,t)=>a+(b-a)*t;
 function applyProp(name,val){ switch(name){
-  case 'image': cfg.image=String(val); setBg(cfg.image||'bg.jpg'); break;
+  case 'image': cfg.image=String(val); setBg(cfg.image); break;
   case 'weather': cfg.weather=+val; buildParticles(); break;
   case 'intensity': cfg.intensity=+val; buildParticles(); break;
   case 'fog': cfg.fog=+val; buildParticles(); break;

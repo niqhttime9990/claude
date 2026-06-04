@@ -1,14 +1,14 @@
 {
-  "title": "Living Photo",
-  "description": "Turns a still image into a cinematic live wallpaper: slow drift + mouse parallax with a realistic blizzard / rain (depth-of-field, motion blur, gusting wind), drifting mist, vignette, grade and film grain. Renders at native resolution. Use your own photo (bg.jpg or an image URL).",
+  "title": "Berserk Snow",
+  "description": "Guts in a blizzard — a 4K Berserk image brought to life with realistic falling snow (depth-of-field, motion blur, gusting wind), drifting mist, vignette and film grain. Renders at native resolution.",
   "type": "web",
-  "file": "index.html",
+  "file": "Berserk-Snow.html",
   "preview": "preview.jpg",
   "tags": ["Nature", "Relaxing", "Anime"],
   "visibility": "private",
   "general": {
     "properties": {
-      "image": { "type": "textinput", "text": "Your image URL (or put bg.jpg in this folder)", "value": "" },
+      "image": { "type": "textinput", "text": "Your image URL (or replace bg.jpg)", "value": "https://raw.githubusercontent.com/niqhttime9990/claude/main/bg.jpg" },
       "fit": {
         "type": "combo", "text": "Fit", "value": "0",
         "options": [ { "label": "Fill screen (recommended)", "value": "0" }, { "label": "Fit whole image (bars)", "value": "1" }, { "label": "Stretch to fill (no crop)", "value": "2" } ]
