@@ -98,7 +98,10 @@ body{font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,s
 <div class="wrap">
   <div class="top">
     <div class="title">Exam <b>Countdown</b></div>
-    <div class="today" id="today"></div>
+    <div style="display:flex;align-items:center;gap:.7rem">
+      <button class="btn acc sm" id="popBtn" title="Float an always-on-top mini widget (Chrome / Edge)">⤢ Pop out</button>
+      <div class="today" id="today"></div>
+    </div>
   </div>
 
   <div id="hero"></div>
@@ -241,6 +244,7 @@ function tick(){
       '<div class="cnt">'+cnt+'</div></div>';
   });
   g.innerHTML=html;
+  if(pip){ try{ renderMini(); }catch(e){} }
 }
 function blk(n,u){return '<div class="cdblk"><div class="n">'+pad(n)+'</div><div class="u">'+u+'</div></div>';}
 function cdTitle(ms){const d=Math.floor(ms/86400000),h=Math.floor((ms%86400000)/3600000),m=Math.floor((ms%3600000)/60000);
@@ -330,6 +334,49 @@ document.getElementById("cancelExams").onclick=()=>document.getElementById("edit
 document.getElementById("editModal").onclick=(e)=>{if(e.target.id==="editModal")e.currentTarget.classList.remove("on");};
 document.getElementById("editBtn").onclick=openEdit;
 document.getElementById("resetAll").onclick=()=>{ if(confirm("Reset exams to the original 4?")){ S={exams:DEFAULTS.slice()}; save(); tick(); } };
+
+/* ---------- POP-OUT (always-on-top mini widget) ---------- */
+let pip=null;
+const HEX={RS:"#5a4a9f",Maths:"#0f766e",Other:"#8a6400"};
+const MINI_CSS=`
+*{box-sizing:border-box;margin:0;padding:0;font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+body{background:#15131f;color:#fff;overflow:hidden}
+.mini{padding:14px 16px;height:100vh;display:flex;flex-direction:column;justify-content:center;background:radial-gradient(130% 100% at 100% 0,var(--c,#5a4a9f) 0%,#15131f 62%)}
+.ml{font-size:10px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;opacity:.7}
+.mn{font-size:15px;font-weight:700;margin:3px 0 9px;line-height:1.15}
+.mc{font-variant-numeric:tabular-nums;font-weight:800;font-size:27px;letter-spacing:-.02em}
+.mc small{font-size:13px;font-weight:600;opacity:.55;margin:0 6px 0 1px}
+.mf{font-size:11px;opacity:.82;margin-top:9px;line-height:1.35}
+.mt{font-size:12px;margin-top:8px;opacity:.9;font-weight:600}`;
+async function popOut(){
+  if(!("documentPictureInPicture" in window)){
+    alert("The floating always-on-top widget needs Chrome or Edge on a computer.\n\nOn anything else, make it its own app window instead:\nopen this file in Chrome → ⋮ menu → Cast, save & share → Create shortcut → tick “Open as window”.");
+    return;
+  }
+  if(pip) return;
+  pip=await documentPictureInPicture.requestWindow({width:300,height:215});
+  const st=pip.document.createElement("style"); st.textContent=MINI_CSS; pip.document.head.appendChild(st);
+  const root=pip.document.createElement("div"); root.id="miniRoot"; pip.document.body.appendChild(root);
+  pip.addEventListener("pagehide",()=>{ pip=null; });
+  renderMini();
+}
+function renderMini(){
+  if(!pip) return;
+  const root=pip.document.getElementById("miniRoot"); if(!root) return;
+  const now=new Date(), list=sorted(), e=list.find(x=>phase(x,now)!=="done");
+  if(!e){ root.innerHTML='<div class="mini"><div class="ml">all done</div><div class="mn">Exams finished 🎉</div></div>'; return; }
+  const c=HEX[e.subject]||HEX.Other, ph=phase(e,now), s=startOf(e);
+  let body;
+  if(ph==="live"){ body='<div class="mc">● now</div><div class="mf">Good luck — you\'re in it.</div>'; }
+  else{
+    let ms=s-now,d=Math.floor(ms/86400000);ms-=d*86400000;let h=Math.floor(ms/3600000);ms-=h*3600000;let m=Math.floor(ms/60000);ms-=m*60000;let sec=Math.floor(ms/1000);
+    body='<div class="mc">'+d+'<small>d</small>'+pad(h)+'<small>h</small>'+pad(m)+'<small>m</small>'+pad(sec)+'<small>s</small></div>';
+    body+='<div class="mf">'+focusMsg(e,Math.ceil((s-now)/86400000))+'</div>';
+  }
+  if(T.running){ body+='<div class="mt">⏱ '+pad(Math.floor(T.left/60))+':'+pad(T.left%60)+' '+(T.mode==="break"?"break":"focus")+'</div>'; }
+  root.innerHTML='<div class="mini" style="--c:'+c+'"><div class="ml">Next exam</div><div class="mn">'+esc(e.subject)+': '+esc(e.name)+'</div>'+body+'</div>';
+}
+document.getElementById("popBtn").onclick=popOut;
 
 /* ---------- INIT ---------- */
 tPrefs(); tSet("focus"); renderSess(); tick(); setInterval(tick,1000);
