@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+*{margin:0;box-sizing:border-box;font-family:"Segoe UI",system-ui,sans-serif;-webkit-user-select:none}
+html,body{height:100%}
+body{background:#15131f;color:#fff;overflow:hidden}
+.app{height:100vh;display:flex;flex-direction:column}
+.bar{-webkit-app-region:drag;display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:rgba(255,255,255,.04)}
+.bar .t{font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;opacity:.55}
+.bar .btns{-webkit-app-region:no-drag;display:flex;gap:6px}
+.bar button{-webkit-app-region:no-drag;width:19px;height:19px;border:none;border-radius:5px;background:rgba(255,255,255,.1);color:#fff;cursor:pointer;font-size:11px;line-height:1}
+.bar button:hover{background:rgba(255,255,255,.22)}
+.body{flex:1;padding:13px 16px;display:flex;flex-direction:column;justify-content:center;background:radial-gradient(130% 100% at 100% 0,var(--c,#5a4a9f) 0%,#15131f 60%)}
+.lab{font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;opacity:.65}
+.name{font-size:15px;font-weight:700;margin:3px 0 9px;line-height:1.15}
+.cd{font-variant-numeric:tabular-nums;font-weight:800;font-size:28px;letter-spacing:-.02em}
+.cd small{font-size:13px;font-weight:600;opacity:.5;margin:0 6px 0 1px}
+.foc{font-size:11px;opacity:.82;margin-top:9px;line-height:1.35}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="bar">
+    <span class="t">Exam Countdown</span>
+    <span class="btns"><button id="min" title="Minimise">—</button><button id="cls" title="Close">×</button></span>
+  </div>
+  <div class="body" id="body"></div>
+</div>
+<script>
+const { ipcRenderer } = require("electron");
+document.getElementById("cls").onclick = () => ipcRenderer.send("win-close");
+document.getElementById("min").onclick = () => ipcRenderer.send("win-min");
+
+const HEX = { RS:"#5a4a9f", Maths:"#0f766e", Other:"#8a6400" };
+const EXAMS = [
+  { subject:"RS",    name:"Religion & Ethics",                  date:"2026-06-09", time:"09:30", mins:120 },
+  { subject:"Maths", name:"Pure & Statistics",                  date:"2026-06-11", time:"14:00", mins:120 },
+  { subject:"RS",    name:"Developments in Christian Thought",  date:"2026-06-15", time:"14:00", mins:120 },
+  { subject:"Maths", name:"Pure & Mechanics",                   date:"2026-06-18", time:"14:00", mins:120 }
+];
+const pad = n => String(n).padStart(2,"0");
+const startOf = e => new Date(e.date+"T"+e.time);
+const endOf = e => new Date(startOf(e).getTime()+e.mins*60000);
+const esc = s => (s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+function focusMsg(e,days){
+  if(days<=0) return "Today — quick review, then trust your prep. 💪";
+  if(days===1) return "Tomorrow. Light review, then sleep early.";
+  if(days<=3) return days+" days — close out your weak topics.";
+  if(days<=7) return days+" days — steady passes, turn ambers green.";
+  return days+" days to "+e.subject+" — keep chipping away.";
+}
+function tick(){
+  const now = new Date();
+  const list = EXAMS.slice().sort((a,b)=>startOf(a)-startOf(b));
+  const e = list.find(x => now < endOf(x));
+  const body = document.getElementById("body");
+  if(!e){ body.style.setProperty("--c","#0f766e"); body.innerHTML='<div class="lab">all done</div><div class="name">Exams finished 🎉</div>'; document.title="done"; return; }
+  body.style.setProperty("--c", HEX[e.subject]||HEX.Other);
+  let inner = '<div class="lab">Next exam</div><div class="name">'+esc(e.subject)+": "+esc(e.name)+'</div>';
+  if(now >= startOf(e)){
+    inner += '<div class="cd">● now</div><div class="foc">Good luck — you\'re in it.</div>';
+    document.title = "● now";
+  } else {
+    let ms = startOf(e)-now;
+    const d=Math.floor(ms/86400000); ms-=d*86400000;
+    const h=Math.floor(ms/3600000); ms-=h*3600000;
+    const m=Math.floor(ms/60000); ms-=m*60000;
+    const s=Math.floor(ms/1000);
+    inner += '<div class="cd">'+d+'<small>d</small>'+pad(h)+'<small>h</small>'+pad(m)+'<small>m</small>'+pad(s)+'<small>s</small></div>';
+    inner += '<div class="foc">'+focusMsg(e, Math.ceil((startOf(e)-now)/86400000))+'</div>';
+    document.title = d+"d "+pad(h)+"h";
+  }
+  body.innerHTML = inner;
+}
+tick();
+setInterval(tick, 1000);
+</script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+name: Build Exam Countdown (Windows)
+
+on:
+  push:
+    branches: ["claude/serene-sagan-98W7v"]
+    paths:
+      - "desktop/**"
+      - ".github/workflows/build-countdown.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        working-directory: desktop
+        run: npm install
+
+      - name: Build portable .exe
+        working-directory: desktop
+        run: npm run dist
+
+      - name: Upload .exe as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ExamCountdown-Windows
+          path: desktop/dist/*.exe
+
+      - name: Publish to a Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: countdown-v1
+          name: Exam Countdown (Windows)
+          body: |
+            Double-click **ExamCountdown.exe** — it opens a small always-on-top widget you can park on the side of your screen.
+
+            It's unsigned, so Windows SmartScreen may pop up the first time:
+            click **More info → Run anyway**.
+          files: desktop/dist/*.exe

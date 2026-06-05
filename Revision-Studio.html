@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Revision Studio · live AI tutor</title>
+<style>
+:root{
+  --ink:#1f2030;--soft:#65647a;--faint:#9a98ad;--line:#e7e4ef;--lsoft:#f3f1f8;
+  --paper:#f7f5fb;--card:#ffffff;--accent:#5a4a9f;--acc-s:#ece9f7;--acc-d:#3c2f6b;
+  --green:#13795b;--green-s:#e2f3ec;--gold:#8a6400;--gold-s:#f8edd5;
+  --red:#a82e2e;--red-s:#fbe9e9;--blue:#1c5fa8;--blue-s:#e7f0fb;
+  --sh:0 1px 2px rgba(30,20,50,.04),0 2px 8px rgba(30,20,50,.05);
+  --sh-l:0 6px 26px rgba(30,20,50,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:var(--paper);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased;font-size:15px}
+.wrap{width:94%;max-width:1180px;margin:0 auto;padding:0 1rem}
+nav{position:sticky;top:0;z-index:40;background:rgba(247,245,251,.93);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+nav .in{width:94%;max-width:1180px;margin:0 auto;padding:.55rem 1rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}
+.brand{font-weight:700;font-size:1rem;margin-right:.6rem;letter-spacing:-.02em}
+.brand b{color:var(--accent)}
+.tab{border:none;background:transparent;color:var(--soft);font:inherit;font-size:.86rem;font-weight:500;padding:.45rem .85rem;border-radius:8px;cursor:pointer;transition:background .15s}
+.tab:hover{background:var(--lsoft)}.tab.on{background:var(--ink);color:#fff}
+.spacer{flex:1}
+.subsel{border:1px solid var(--line);border-radius:8px;padding:.4rem .6rem;font:inherit;font-size:.82rem;font-weight:550;background:var(--card);color:var(--ink);cursor:pointer;max-width:220px}
+.countpill{font-size:.74rem;font-weight:650;color:var(--accent);background:var(--acc-s);padding:.35rem .7rem;border-radius:20px;white-space:nowrap}
+.iconbtn{border:1px solid var(--line);background:var(--card);border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:1rem;display:grid;place-items:center}
+.iconbtn:hover{background:var(--lsoft)}
+.page{display:none;padding:1.6rem 0 3rem}.page.on{display:block}
+.eyebrow{font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:.4rem}
+h1{font-size:1.8rem;font-weight:700;letter-spacing:-.025em;line-height:1.1}
+.lede{color:var(--soft);font-size:.92rem;margin-top:.5rem;max-width:72ch}
+h2{font-size:.86rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:1rem}
+.sectionhead{display:flex;align-items:center;gap:.7rem;margin:1.8rem 0 1rem}
+.sectionhead h2{margin:0}.sectionhead .rule{flex:1;height:1px;background:var(--line)}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.3rem;box-shadow:var(--sh)}
+.panel.tight{padding:1rem 1.2rem}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin:1.3rem 0}
+.metric{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.1rem 1.2rem;box-shadow:var(--sh)}
+.metric .lab{font-size:.72rem;color:var(--soft);font-weight:550;margin-bottom:.45rem}
+.metric .val{font-size:1.9rem;font-weight:700;line-height:1;letter-spacing:-.03em}
+.metric .vsub{font-size:.74rem;color:var(--faint);margin-top:.4rem}
+.metric.hero .val{font-size:2.9rem;color:var(--accent)}
+.btn{background:var(--ink);color:#fff;border:none;padding:.6rem 1.1rem;border-radius:9px;cursor:pointer;font:inherit;font-size:.86rem;font-weight:550;transition:transform .08s,opacity .15s;display:inline-flex;align-items:center;gap:.4rem}
+.btn:hover{opacity:.92}.btn:active{transform:translateY(1px)}
+.btn.block{width:100%;justify-content:center}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.ghost:hover{background:var(--lsoft);opacity:1}
+.btn.sm{padding:.38rem .72rem;font-size:.8rem}
+.btn.acc{background:var(--accent)}.btn.ok{background:var(--green)}.btn.red{background:var(--red)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+input[type=text],input[type=password],textarea,select{border:1px solid var(--line);border-radius:9px;padding:.6rem .75rem;background:var(--card);color:var(--ink);font:inherit;font-size:.9rem;width:100%}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--acc-s)}
+textarea{resize:vertical;line-height:1.5}
+label.fld{display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--soft);font-weight:650;margin-bottom:.35rem}
+.tag{font-size:.71rem;padding:3px 10px;border-radius:7px;background:var(--lsoft);color:var(--soft);font-weight:550;white-space:nowrap;display:inline-block}
+.tag.cat{background:var(--acc-s);color:var(--acc-d)}
+.link{background:none;border:none;color:var(--accent);cursor:pointer;font:inherit;font-size:.84rem;text-decoration:underline;padding:.1rem}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none}
+.rag-green{background:var(--green)}.rag-gold{background:var(--gold)}.rag-red{background:var(--red)}.rag-none{background:#cfcdda}
+.barback{height:7px;background:var(--lsoft);border-radius:6px;overflow:hidden}.barfill{height:100%;border-radius:6px;transition:width .4s}
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:.85rem}
+.tcard{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:.95rem 1.05rem;box-shadow:var(--sh);cursor:pointer;transition:transform .1s,box-shadow .15s}
+.tcard:hover{transform:translateY(-2px);box-shadow:var(--sh-l)}
+.tcard .tname{font-weight:650;font-size:.96rem;margin-bottom:.2rem;display:flex;align-items:center;gap:.5rem}
+.tcard .tmeta{font-size:.76rem;color:var(--faint);margin-bottom:.6rem}
+.empty{color:var(--faint);font-size:.88rem;text-align:center;padding:2rem 1rem;font-style:italic}
+.callout{background:var(--acc-s);border:1px solid #d9d3ef;border-radius:11px;padding:.85rem 1.05rem;font-size:.84rem;color:var(--acc-d)}
+.callout b{font-weight:700}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(40px);background:var(--ink);color:#fff;padding:.7rem 1.2rem;border-radius:10px;font-size:.86rem;font-weight:550;opacity:0;transition:all .25s;z-index:90;pointer-events:none;box-shadow:var(--sh-l)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+/* modal */
+.modalbg{position:fixed;inset:0;background:rgba(25,20,40,.45);display:none;align-items:center;justify-content:center;z-index:80;padding:1rem}
+.modalbg.on{display:flex}
+.modal{background:var(--card);border-radius:16px;max-width:520px;width:100%;padding:1.6rem;box-shadow:var(--sh-l);max-height:90vh;overflow:auto}
+.modal h3{font-size:1.15rem;font-weight:700;margin-bottom:.3rem}
+/* chat */
+.studywrap{display:grid;grid-template-columns:1fr;gap:1rem}
+.chathead{display:flex;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:.2rem}
+.chathead h1{flex:1;min-width:200px;font-size:1.4rem}
+.memline{font-size:.8rem;color:var(--soft);background:var(--lsoft);border-radius:8px;padding:.5rem .7rem;margin:.3rem 0 0}
+.memline b{color:var(--accent)}
+.chips{display:flex;gap:.5rem;flex-wrap:wrap;margin:.3rem 0}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:20px;padding:.4rem .85rem;font:inherit;font-size:.82rem;font-weight:550;cursor:pointer;color:var(--ink);display:inline-flex;align-items:center;gap:.35rem;transition:all .12s}
+.chip:hover{background:var(--acc-s);border-color:#d9d3ef}
+.chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.msgs{border:1px solid var(--line);border-radius:14px;background:var(--card);box-shadow:var(--sh);padding:1.1rem;min-height:340px;max-height:60vh;overflow-y:auto}
+.msg{margin-bottom:1.1rem;display:flex;gap:.7rem}
+.msg .av{width:28px;height:28px;border-radius:8px;flex:none;display:grid;place-items:center;font-size:.72rem;font-weight:700;color:#fff}
+.msg.user .av{background:var(--ink)}.msg.ai .av{background:var(--accent)}
+.msg .bubble{flex:1;font-size:.92rem;line-height:1.6;padding-top:.15rem;min-width:0}
+.msg.user .bubble{color:var(--ink)}
+.bubble pre.stream{white-space:pre-wrap;font-family:inherit;margin:0}
+.bubble h3,.bubble h4{font-size:.95rem;font-weight:700;margin:.7rem 0 .35rem;color:var(--acc-d)}
+.bubble p{margin:.45rem 0}.bubble ul,.bubble ol{margin:.45rem 0 .45rem 1.2rem}.bubble li{margin:.2rem 0}
+.bubble code{background:var(--lsoft);padding:.05rem .3rem;border-radius:4px;font-size:.88em}
+.bubble strong{font-weight:680;color:var(--ink)}
+.savedchip{display:inline-block;margin-top:.5rem;font-size:.74rem;font-weight:650;color:var(--green);background:var(--green-s);padding:.2rem .6rem;border-radius:20px}
+.composer{border:1px solid var(--line);border-radius:14px;background:var(--card);box-shadow:var(--sh);padding:.7rem;margin-top:.8rem}
+.composer textarea{border:none;box-shadow:none;padding:.4rem .5rem;min-height:46px;max-height:200px}
+.composer textarea:focus{box-shadow:none}
+.composer .row{display:flex;align-items:center;gap:.5rem;margin-top:.3rem}
+.composer .hint{font-size:.74rem;color:var(--faint);flex:1}
+.typing{display:inline-flex;gap:3px;align-items:center}
+.typing span{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:bl 1.2s infinite}
+.typing span:nth-child(2){animation-delay:.2s}.typing span:nth-child(3){animation-delay:.4s}
+@keyframes bl{0%,80%,100%{opacity:.25}40%{opacity:1}}
+footer{border-top:1px solid var(--line);padding:1.3rem 0;color:var(--faint);font-size:.78rem;text-align:center;line-height:1.7}
+.kbd{font-family:ui-monospace,monospace;background:var(--lsoft);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 .35rem;font-size:.8em}
+@media(max-width:600px){.msgs{max-height:none}}
+</style>
+</head>
+<body>
+<nav><div class="in">
+  <span class="brand">Revision <b>Studio</b></span>
+  <button class="tab on" data-go="dash">Dashboard</button>
+  <button class="tab" data-go="study">Study</button>
+  <span class="spacer"></span>
+  <select class="subsel" id="subSel"></select>
+  <span class="countpill" id="countpill"></span>
+  <button class="iconbtn" id="settingsBtn" title="Settings">⚙</button>
+</div></nav>
+<div class="wrap"><div id="pages"></div>
+<footer>
+  Revision Studio · talks to Claude with <b>your own</b> API key (stored only in this browser) · progress saved locally ·
+  <button class="link" id="exportBtn">export progress</button> · <button class="link" id="importBtn">import</button>
+  <input type="file" id="importFile" accept=".json" style="display:none"><br>
+  Content is a revision aid built to match the OCR spec — verify anything you'll quote against your own notes.
+</footer></div>
+
+<!-- settings modal -->
+<div class="modalbg" id="settingsModal"><div class="modal">
+  <h3>Settings</h3>
+  <p style="color:var(--soft);font-size:.86rem;margin-bottom:1rem">Your key is stored only in this browser (localStorage) and used only to call Claude directly. It never goes anywhere else.</p>
+  <label class="fld">Anthropic API key</label>
+  <input type="password" id="keyInput" placeholder="sk-ant-...">
+  <div style="font-size:.78rem;color:var(--faint);margin:.4rem 0 1rem">Get one at <a class="link" href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com → API keys</a>. Add a few £ of credit; revision chats cost pennies.</div>
+  <label class="fld">Model</label>
+  <select id="modelInput">
+    <option value="claude-sonnet-4-6">Sonnet 4.6 — best balance (recommended)</option>
+    <option value="claude-opus-4-8">Opus 4.8 — most capable, pricier</option>
+    <option value="claude-haiku-4-5-20251001">Haiku 4.5 — cheapest &amp; fastest</option>
+  </select>
+  <div style="display:flex;gap:.6rem;margin-top:1.4rem;flex-wrap:wrap">
+    <button class="btn acc" id="saveSettings">Save</button>
+    <button class="btn ghost" id="closeSettings">Cancel</button>
+    <span class="spacer" style="flex:1"></span>
+    <button class="btn ghost" id="clearData" style="color:var(--red)">Clear all progress</button>
+  </div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+<script>
+/* ============================================================
+   REVISION STUDIO — live AI tutor (browser → Anthropic API)
+   Loop: ask it to TEACH a topic -> ask follow-ups -> BLURT to it
+   -> it corrects you -> app auto-remembers coverage + weak spots.
+   One static file. Uses the student's OWN API key (localStorage).
+   ============================================================ */
+
+/* ---------------- CONTENT ---------------- */
+const ETHICS_TOPICS = [
+ {id:"natural_law",name:"Natural Law",cat:"Normative theory",
+  oneLiner:"Aquinas: deontological & absolutist — act in line with the rational, God-given purpose (telos) of human nature.",
+  thinkers:[{who:"Aristotle",note:"Telos & eudaimonia — everything has a final cause/purpose."},{who:"Thomas Aquinas",note:"13th C; synthesises Aristotle with Christianity in Summa Theologica; reason discerns natural law."}],
+  concepts:[{term:"Telos & eudaimonia",d:"Human telos is to flourish and be united with God; acting rationally toward it is the good."},{term:"Four tiers of law",d:"Eternal → Divine (revealed) → Natural (eternal law grasped by reason) → Human law."},{term:"Synderesis rule",d:"Innate principle to 'do good and avoid evil'."},{term:"Five Primary Precepts",d:"Preservation of life, Ordered society, Worship God, Education, Reproduction (P.O.W.E.R)."},{term:"Secondary precepts",d:"Specific rules reasoned from primaries (no abortion, monogamy) — more flexible."},{term:"Real vs apparent goods",d:"We pursue what seems good; apparent goods only seem to aid our telos. Sin = faulty reason."},{term:"Interior & exterior acts",d:"Both act and intention must be good."},{term:"Doctrine of double effect",d:"A bad side-effect is allowed if the act is good, the bad effect isn't the means, and there's proportionate reason."}],
+  quotes:[{who:"Aquinas",text:"Good is to be done and pursued, and evil is to be avoided."},{who:"Aquinas",text:"To disparage the dictate of reason is equivalent to condemning the command of God."}],
+  strengths:["Universal & rational — based on shared human nature, accessible to all.","Clear absolute rules give moral certainty; protect human dignity.","Primary/secondary split + double effect allow flexibility in hard cases."],
+  weaknesses:["Commits the naturalistic fallacy (is→ought).","Assumes one fixed human nature/telos — challenged by evolution & moral diversity.","Can be too rigid; following secondary precepts absolutely may be unloving (Fletcher).","Depends on God / objective telos existing."],
+  links:["Contrast with Situation Ethics (rules vs love) and Utilitarianism (acts vs consequences).","Apply to Euthanasia (preservation of life) and Sexual ethics (reproduction).","Aquinas on conscience (ratio/synderesis) links to the Conscience topic."]},
+ {id:"situation_ethics",name:"Situation Ethics",cat:"Normative theory",
+  oneLiner:"Fletcher: the only absolute is agape (selfless love); do whatever love requires in the situation — relativist & teleological.",
+  thinkers:[{who:"Joseph Fletcher",note:"1960s; Situation Ethics (1966); a middle way between legalism and antinomianism."},{who:"John Robinson",note:"Honest to God — 'nothing can of itself always be labelled as wrong'."}],
+  concepts:[{term:"Agape",d:"Unconditional, selfless love — the only intrinsic good; a disposition, not an emotion."},{term:"Legalism / Antinomianism / Situationism",d:"Rigid rules vs no rules vs one rule (love) applied per situation."},{term:"Four working principles",d:"Pragmatism, Relativism, Positivism, Personalism."},{term:"Six fundamental propositions",d:"1) Only love is intrinsically good 2) love replaces law 3) love = justice distributed 4) love wills neighbour's good regardless of feeling 5) only the end (love) justifies the means 6) love decides situationally."},{term:"Conscience as a verb",d:"Conscience is the act of making loving decisions, not a faculty ('a verb not a noun')."}],
+  quotes:[{who:"Fletcher",text:"Love is the only thing that is intrinsically good."},{who:"Fletcher",text:"Love and justice are the same, for justice is love distributed."},{who:"Robinson",text:"Nothing can of itself always be labelled as wrong."}],
+  strengths:["Flexible & compassionate — fits the actual situation, avoids rigid cruelty.","Person-centred; puts wellbeing above rules.","Arguably scriptural — Jesus put love above Sabbath law."],
+  weaknesses:["Too subjective — who decides what's 'most loving'? Open to abuse.","Consequences are hard to predict.","Pope Pius XII: 'the ethics of the individual' — undermines moral authority.","'Love justifies the means' can excuse terrible acts."],
+  links:["Direct contrast with Natural Law.","Apply to Euthanasia and Sexual ethics (is it loving?).","Compare conscience-as-verb with Aquinas and Freud."]},
+ {id:"kant",name:"Kantian Ethics",cat:"Normative theory",
+  oneLiner:"Kant: morality is a priori duty found by reason; act only on maxims you could will as universal laws — deontological & absolutist.",
+  thinkers:[{who:"Immanuel Kant",note:"18th C Enlightenment; Groundwork of the Metaphysics of Morals; morality = rational duty."}],
+  concepts:[{term:"The Good Will",d:"The only thing good without qualification; acting from duty, not inclination."},{term:"Duty & a priori reason",d:"Moral law known by reason alone; act from duty, not feeling or reward."},{term:"Hypothetical vs categorical imperatives",d:"'If you want X do Y' vs unconditional 'do Y'. Morality is categorical."},{term:"1st formulation — Universal Law",d:"Act only on a maxim you can will as a universal law; lying universalised is self-defeating."},{term:"2nd formulation — Ends not Means",d:"Treat humanity never merely as a means but always as an end."},{term:"3rd formulation — Kingdom of Ends",d:"Act as a law-making member of a community of ends."},{term:"Summum bonum & postulates",d:"Highest good = virtue rewarded with happiness; postulate freedom, immortality, God."}],
+  quotes:[{who:"Kant",text:"Nothing can be called good without qualification except a good will."},{who:"Kant",text:"Act only according to that maxim whereby you can at the same time will that it should become a universal law."}],
+  strengths:["Rational, objective, universal — equality, no bias.","'Ends not means' is a strong basis for human rights & dignity.","Independent of fickle emotions and uncertain consequences."],
+  weaknesses:["Too rigid — can't lie to the murderer at the door.","Ignores consequences & compassion — coldly counter-intuitive.","Gives no way to resolve conflicting duties.","'Maxim' can be gerrymandered."],
+  links:["Classic contrast with Utilitarianism (duty vs consequences).","Apply to Business ethics (employees as ends) and Euthanasia (autonomy).","Compare with Natural Law (both absolutist, reason-based)."]},
+ {id:"utilitarianism",name:"Utilitarianism",cat:"Normative theory",
+  oneLiner:"Bentham & Mill: the right act produces the greatest happiness for the greatest number — teleological & relativist.",
+  thinkers:[{who:"Jeremy Bentham",note:"Act utilitarian; hedonist; hedonic/felicific calculus; quantitative."},{who:"John Stuart Mill",note:"Higher vs lower pleasures (qualitative); the harm principle; often read as rule utilitarian."},{who:"Peter Singer",note:"Preference utilitarianism — satisfy interests/preferences."}],
+  concepts:[{term:"Principle of utility",d:"Right insofar as it promotes happiness; 'greatest good for the greatest number'."},{term:"Hedonism",d:"Pleasure is the only intrinsic good, pain the only evil."},{term:"Hedonic calculus",d:"Bentham's 7 measures: Intensity, Duration, Certainty, Propinquity, Fecundity, Purity, Extent."},{term:"Act vs Rule",d:"Calculate each act vs follow utility-maximising rules ('keep promises')."},{term:"Higher & lower pleasures (Mill)",d:"Intellectual pleasures qualitatively superior; 'competent judges' decide."},{term:"Harm principle (Mill)",d:"Power over someone against their will is only justified to prevent harm to others."}],
+  quotes:[{who:"Bentham",text:"Nature has placed mankind under the governance of two sovereign masters, pain and pleasure."},{who:"Mill",text:"It is better to be a human being dissatisfied than a pig satisfied; better to be Socrates dissatisfied than a fool satisfied."}],
+  strengths:["Democratic & intuitive — everyone counts equally; consequences matter.","Flexible & secular.","Harm principle protects liberty & minorities (Mill)."],
+  weaknesses:["Tyranny of the majority — can justify exploiting a minority.","Consequences unpredictable; calculus impractical.","Ignores justice, rights and special obligations (e.g. to family).","Higher/lower pleasures looks elitist & circular."],
+  links:["Contrast with Kant and Natural Law.","Apply to Business ethics and Euthanasia (quality of life).","Harm principle links to autonomy in Euthanasia & Sexual ethics."]},
+ {id:"euthanasia",name:"Euthanasia",cat:"Applied ethics",
+  oneLiner:"Applying Natural Law & Situation Ethics to end-of-life: sanctity of life vs quality of life and autonomy.",
+  thinkers:[{who:"Sanctity of life",note:"Life is God-given, sacred, imago Dei — strongly opposes euthanasia."},{who:"Peter Singer",note:"Personhood & quality of life over mere biological life; supports voluntary euthanasia."},{who:"James Rachels",note:"No real moral difference between active and passive euthanasia."}],
+  concepts:[{term:"Voluntary/non-voluntary/involuntary",d:"Asked for it / can't ask / against their will (=murder)."},{term:"Active vs passive",d:"Causing death vs withholding treatment; double effect for pain relief."},{term:"Sanctity of life",d:"Life intrinsically valuable & God-given; Natural Law's preservation precept forbids euthanasia."},{term:"Quality of life",d:"Value depends on dignity, autonomy, freedom from suffering."},{term:"Autonomy",d:"Right to self-determination (Mill's harm principle; Kant's rational agency — debated)."},{term:"Slippery slope",d:"Legalising may pressure the vulnerable."}],
+  quotes:[{who:"Genesis / imago Dei",text:"So God created mankind in his own image."},{who:"Fletcher",text:"Love decides there and then."}],
+  strengths:["Natural Law gives a clear, consistent, protective stance.","Situation Ethics is compassionate & case-sensitive.","Autonomy respects dignity & self-determination."],
+  weaknesses:["Sanctity of life can seem to value biology over the suffering person.","'Most loving act'/quality judgements are subjective & open to abuse.","Active/passive distinction is shaky (Rachels) yet legally central."],
+  links:["Application of Natural Law (against) and Situation Ethics (potentially for).","Autonomy links to Mill & Kant.","Sanctity of life links to DCT (Christian moral principles)."]},
+ {id:"business",name:"Business Ethics",cat:"Applied ethics",
+  oneLiner:"Applying Kant & Utilitarianism to corporate life: CSR, whistleblowing, globalisation, 'good ethics is good business'.",
+  thinkers:[{who:"Milton Friedman",note:"Shareholder view — 'the social responsibility of business is to increase its profits'."},{who:"Adam Smith",note:"The 'invisible hand' — self-interest benefits society."}],
+  concepts:[{term:"Corporate Social Responsibility",d:"Duties to society/environment beyond profit — genuine duty or PR?"},{term:"Shareholders vs stakeholders",d:"Maximise owner profit vs balance all affected parties."},{term:"Whistleblowing",d:"Exposing wrongdoing; Kant's duty to truth vs Utilitarian weighing of harm."},{term:"Globalisation",d:"Outsourcing & cheap labour — exploitation vs development."},{term:"'Good ethics is good business'",d:"Ethics boosts profit — but makes morality merely instrumental (a hypothetical imperative for Kant)."}],
+  quotes:[{who:"Friedman",text:"The social responsibility of business is to increase its profits."},{who:"Kant",text:"Treat humanity never merely as a means to an end."}],
+  strengths:["Kant protects against exploitation (workers as ends).","Utilitarianism captures real stakeholder weighing.","Friedman's view is clear and respects law & shareholder rights."],
+  weaknesses:["Kant struggles with conflicting duties.","Utilitarianism can license exploitation.","'Good ethics is good business' may reduce morality to profit."],
+  links:["Apply Kant and Utilitarianism on cases.","Whistleblowing links to conscience & duty to truth.","Exploitation links to justice critiques of utilitarianism."]},
+ {id:"meta_ethics",name:"Meta-ethics",cat:"Meta-ethics",
+  oneLiner:"What do moral words MEAN? Cognitivism (moral facts) vs non-cognitivism (moral talk expresses feeling).",
+  thinkers:[{who:"G.E. Moore",note:"Intuitionism; the naturalistic fallacy; 'good' is simple, indefinable, non-natural; open-question argument."},{who:"A.J. Ayer",note:"Emotivism; logical positivism & verification principle; 'boo/hurrah'."},{who:"David Hume",note:"The is–ought gap."}],
+  concepts:[{term:"Cognitivism vs non-cognitivism",d:"Moral statements state facts (true/false) vs express attitudes (not truth-apt)."},{term:"Ethical naturalism",d:"Moral facts ARE natural facts, knowable empirically (e.g. good = maximises happiness)."},{term:"Intuitionism",d:"Moore: 'good' is real but indefinable, known by intuition; Ross's prima facie duties."},{term:"Naturalistic fallacy",d:"You can't define 'good' in natural terms; doing so is a fallacy."},{term:"Open-question argument",d:"'Is pleasure good?' stays sensible, so good ≠ pleasure."},{term:"Emotivism",d:"'Stealing is wrong' = 'Stealing! Boo!' — only expresses disapproval."},{term:"Is–ought gap (Hume)",d:"You can't derive 'ought' from 'is'."}],
+  quotes:[{who:"Moore",text:"If I am asked 'What is good?' my answer is that good is good, and that is the end of the matter."},{who:"Ayer",text:"Ethical statements are pure expressions of feeling and... do not come under the category of truth and falsehood."}],
+  strengths:["Naturalism keeps ethics objective & testable.","Intuitionism captures that some things are 'just wrong' while respecting Hume.","Emotivism explains moral disagreement & the emotional pull of moral talk."],
+  weaknesses:["Naturalism faces the naturalistic fallacy & open-question argument.","Intuitionism: whose intuitions? They conflict.","Emotivism makes debate impossible & rests on the self-refuting verification principle."],
+  links:["The naturalistic fallacy is an AO2 weapon vs Natural Law & Utilitarianism.","Is Natural Law a naturalist theory? Does Kant assume cognitivism?","Links to conscience: real moral facts or conditioned feeling?"]},
+ {id:"conscience",name:"Conscience",cat:"Conscience",
+  oneLiner:"Is conscience God-given reason (Aquinas) or a psychological construct from upbringing (Freud)?",
+  thinkers:[{who:"Thomas Aquinas",note:"Conscience = reason making moral judgements; not a voice; can err."},{who:"Sigmund Freud",note:"Conscience = the super-ego, internalised authority from childhood; source of guilt."}],
+  concepts:[{term:"Aquinas: ratio",d:"Conscience is the mind making right decisions — an activity of reason."},{term:"Synderesis & conscientia",d:"Disposition to pursue good vs the actual act of applying it to a decision."},{term:"Vincible & invincible ignorance",d:"A mistaken conscience may be culpable (vincible) or excusable (invincible)."},{term:"Freud: id/ego/super-ego",d:"Drives / reality-managing self / internalised moral authority. Conscience = punishing super-ego."},{term:"Super-ego & guilt",d:"Built from internalised parental prohibitions; conscience is a human construct, not divine."}],
+  quotes:[{who:"Aquinas",text:"Conscience is reason making right decisions."},{who:"Freud",text:"Conscience is... the internal echo of external authority."}],
+  strengths:["Aquinas fits conscience-as-reasoning; allows error & growth.","Freud is empirically grounded; explains why consciences differ.","Together they map the religious vs secular debate."],
+  weaknesses:["Aquinas needs God & objective natural law to exist.","Freud's theory is hard to test & widely criticised.","If purely a construct (Freud), conscience loses moral authority."],
+  links:["Links to Natural Law (Aquinas's reason) & Fletcher (conscience as verb).","Links to meta-ethics (real facts vs feeling).","Use when an essay asks whether to follow conscience."]},
+ {id:"sexual_ethics",name:"Sexual Ethics",cat:"Applied ethics",
+  oneLiner:"Applying the four normative theories to premarital sex, adultery and homosexuality — religious vs secular.",
+  thinkers:[{who:"Natural Law / religious view",note:"Sex's purpose is reproduction within marriage; other acts frustrate the precept."},{who:"Secular/liberal view",note:"Consent, autonomy & love matter, not procreation (Mill's harm principle)."}],
+  concepts:[{term:"Premarital sex",d:"Natural Law: wrong. Situation Ethics/Util: permissible if loving/consensual & not harmful."},{term:"Extramarital sex",d:"Widely condemned — breaks promises & trust (Kant; Util harm; Natural Law: against ordered society)."},{term:"Homosexuality",d:"Natural Law (traditional): against reproduction precept. Secular/Situationist: a loving relationship is good."},{term:"Kant applied",d:"Don't treat a partner merely as a means (objectification); fidelity respects persons."},{term:"Situation Ethics & Util applied",d:"Is it the most loving act? Does it maximise happiness & minimise harm?"}],
+  quotes:[{who:"Mill",text:"The only purpose for which power can be rightfully exercised over any member of a civilised community... is to prevent harm to others."},{who:"Fletcher",text:"Love is the only thing that is intrinsically good."}],
+  strengths:["Natural Law: consistent religious framework grounded in purpose.","Situation Ethics/Util respect consent, autonomy & love.","Kant's 'ends not means' condemns exploitation."],
+  weaknesses:["Natural Law's reproductive focus seems outdated/discriminatory.","'Most loving act' is subjective.","Utilitarian calculation ignores commitment & justice."],
+  links:["Best topic to apply ALL FOUR normative theories.","Religious vs secular tension links to DCT (gender, pluralism).","Harm principle & autonomy link to Euthanasia."]},
+];
+
+const DCT_TOPICS = [
+ {id:"augustine",name:"Augustine on human nature",cat:"Insight",oneLiner:"Augustine: human nature is wounded by Original Sin; we depend on God's grace.",thinkers:[{who:"Augustine",note:"Confessions, City of God; concupiscence, grace, summum bonum."},{who:"Pelagius",note:"Opponent — humans can choose good without special grace."}],notes:["Pre-Fall Eden: harmony, friendship, rightly-ordered love.","The Fall: disobedience introduces concupiscence — disordered desire that corrupts the will.","Original Sin is transmitted to all (a 'massa damnata'); the will is divided and cannot consistently choose good.","Summum bonum (highest good) found only in God; earthly goods can't satisfy.","Salvation depends wholly on God's unmerited grace, not human effort.","Critiques: pessimistic; ties sin to sex; Pelagius & modern thinkers stress free will."]},
+ {id:"afterlife",name:"Death & the afterlife",cat:"Insight",oneLiner:"Christian hope of resurrection and judgement: heaven, hell, purgatory, election.",thinkers:[{who:"Augustine",note:"Limited election; the elect & the damned."},{who:"John Hick",note:"Universalism — God's love saves all eventually."}],notes:["Heaven: union with God / beatific vision — literal place vs symbolic state.","Hell: separation from God — eternal punishment vs conditional/annihilation.","Purgatory (Catholic): post-death purification of the saved.","Particular vs Final Judgement; parousia (second coming).","Election: limited (Augustine/Calvin) vs unlimited; universalism (all saved) vs particularism.","Resurrection of the body (Christian) vs immortality of the soul (Greek)."]},
+ {id:"knowledge_god",name:"Knowledge of God's existence",cat:"Insight",oneLiner:"Can we know God by reason & nature (natural theology) or only through revelation?",thinkers:[{who:"Aquinas",note:"Natural knowledge of God via reason & observation."},{who:"John Calvin",note:"Sensus divinitatis — an innate awareness of God."},{who:"Karl Barth",note:"Rejects natural theology — only revelation in Christ; 'finite cannot grasp the infinite'."}],notes:["Natural theology: knowing God through reason, design, order and conscience (apparent in creation).","Calvin's sensus divinitatis: innate sense of the divine in all people; plus knowledge through creation.","Revealed theology: God known through grace, faith, scripture and supremely in Jesus Christ.","Barth: human reason is corrupted by sin; natural theology risks idolatry; revelation alone.","Debate: does natural knowledge lead to God or only point toward the need for revelation?"]},
+ {id:"jesus",name:"The person of Jesus Christ",cat:"Insight",oneLiner:"Was Jesus only a teacher, a political liberator, or the divine Son of God?",thinkers:[{who:"Christian orthodoxy",note:"Jesus as the divine Son of God."}],notes:["Jesus the teacher of wisdom: moral teaching, repentance, inner purity (Sermon on the Mount).","Jesus the liberator: challenges political & religious authorities; champions the marginalised (proto-liberation theology).","Jesus the Son of God: miracles, 'I am' sayings, knowledge of God, the resurrection.","His authority: only a moral teacher, or does he claim/demonstrate divinity?","Relevance for how Christians live and what they owe him."]},
+ {id:"moral_principles",name:"Christian moral principles",cat:"Living",oneLiner:"Are Christian ethics from the Bible alone, Bible+Church+reason, or simply love?",thinkers:[{who:"Joseph Fletcher",note:"Agape as the single principle (situationist influence)."}],notes:["Sources: the Bible, the Church/tradition, reason & conscience, and love (agape).","Sola scriptura (Bible alone) vs Bible + Church + reason working together.","Propositional vs non-propositional revelation.","Heteronomous (law from God outside us) vs theonomous vs autonomous Christian ethics.","Is Christian ethics best seen as a set of commands, or as the single law of love?"]},
+ {id:"moral_action",name:"Christian moral action — Bonhoeffer",cat:"Living",oneLiner:"Bonhoeffer: costly discipleship, resistance to evil, and solidarity with the oppressed.",thinkers:[{who:"Dietrich Bonhoeffer",note:"The Cost of Discipleship; Confessing Church; executed 1945 for resisting the Nazis."}],notes:["Costly grace vs cheap grace — discipleship demands everything.","The Confessing Church resisting the Nazified state church; Finkenwalde seminary.","Civil disobedience & active resistance (involvement in plots against Hitler).","Solidarity & 'religionless Christianity' — faith expressed in action for others.","Ethics as obedient action, not just theory; martyrdom as witness.","Quote: 'When Christ calls a man, he bids him come and die.'"]},
+ {id:"pluralism_theology",name:"Religious pluralism (theology)",cat:"Society",oneLiner:"Exclusivism, inclusivism or pluralism — can non-Christians be saved?",thinkers:[{who:"Karl Rahner",note:"Inclusivism — 'anonymous Christians'."},{who:"John Hick",note:"Pluralism — a 'Copernican revolution' centred on 'the Real'."}],notes:["Exclusivism: salvation only through explicit faith in Christ (restrictive; Barth, Kraemer).","Inclusivism: Christ is the only saviour but his grace can reach sincere non-Christians (Rahner; Vatican II).","Pluralism: many faiths are valid responses to the one ultimate reality (Hick).","Hick's 'Copernican revolution' — God, not Christianity, at the centre.","Debate: does pluralism dissolve the uniqueness of Christ?"]},
+ {id:"pluralism_society",name:"Religious pluralism (society)",cat:"Society",oneLiner:"How should Christianity respond to living in a multi-faith society?",thinkers:[{who:"Catholic Church",note:"Nostra Aetate / Redemptoris Missio."}],notes:["Inter-faith dialogue and 'scriptural reasoning'.","The Catholic Church's developing approach (Vatican II 'Nostra Aetate').","Mission/evangelism vs respectful dialogue.","Responses to migration, multiculturalism and social cohesion.","Tension between holding truth-claims and valuing other faiths."]},
+ {id:"gender_society",name:"Gender & society",cat:"Society",oneLiner:"Changing roles of men and women, and Christian responses.",thinkers:[],notes:["Secular feminism & changing roles in family and work.","Christian responses: complementarian (distinct roles) vs egalitarian.","Biblical teaching on family, motherhood and headship — and competing readings.","Secular vs religious views on gender roles and equality."]},
+ {id:"gender_theology",name:"Gender & theology",cat:"Society",oneLiner:"Feminist theology: is Christianity inherently patriarchal?",thinkers:[{who:"Rosemary Radford Ruether",note:"Reforms from within — challenges sexism, reimagines God-language."},{who:"Mary Daly",note:"Post-Christian — 'if God is male, then the male is God'."}],notes:["Ruether: critiques sexism in church & theology; can a male saviour save women? Reform from within.","Daly: Christianity is irredeemably patriarchal — leave it ('Beyond God the Father').","Male language & imagery for God; the maleness of Christ.","Mariology and the place of women in church leadership."]},
+ {id:"secularism",name:"The challenge of secularism",cat:"Society",oneLiner:"Dawkins & Freud: is religion a delusion or a wish-fulfilment to be outgrown?",thinkers:[{who:"Richard Dawkins",note:"Religion as a delusion; faith as 'blind trust'; anti-theism."},{who:"Sigmund Freud",note:"Religion as illusion & wish-fulfilment — a projected father-figure."}],notes:["Secularism (religion out of public life) vs secularisation (decline of religion).","Dawkins: religion is false, harmful and irrational; 'God of the gaps'.","Freud: religion is a comforting illusion/neurosis projecting a cosmic father.","Christian responses: faith is reasonable; religion benefits society & individuals.","Secular humanism as an alternative source of meaning & morality."]},
+ {id:"liberation",name:"Liberation theology & Marx",cat:"Society",oneLiner:"Using Marx's critique to put theology at the service of the poor.",thinkers:[{who:"Karl Marx",note:"Religion as 'the opium of the people'; alienation; ideology."},{who:"Gustavo Gutiérrez",note:"Liberation theology — 'preferential option for the poor'."}],notes:["Marx: religion masks oppression ('opium'), reflects alienation, serves the ruling class.","Liberation theology: God sides with the poor; theology begins from praxis (action).","'Preferential option for the poor'; tackling structural/social sin.","Use of Marxist social analysis — and the Church's caution about it (CDF).","Debate: liberating gospel or politicising the faith?"]},
+];
+
+const MATHS_TOPICS = [
+ {id:"proof",name:"Proof",cat:"Pure",notes:"Proof by deduction, exhaustion, counterexample and contradiction (e.g. √2 irrational, infinitely many primes)."},
+ {id:"algebra",name:"Algebra & functions",cat:"Pure",notes:"Indices, surds, quadratics, simultaneous eqns, inequalities, polynomials, partial fractions, modulus, transformations, composite & inverse functions."},
+ {id:"coord",name:"Coordinate geometry",cat:"Pure",notes:"Straight lines, circles, and parametric equations (and converting to Cartesian)."},
+ {id:"sequences",name:"Sequences & series",cat:"Pure",notes:"Arithmetic & geometric series, sum to infinity, recurrence relations, binomial expansion (incl. rational/negative n and validity)."},
+ {id:"trig",name:"Trigonometry",cat:"Pure",notes:"Radians, arcs & sectors, identities, double/compound angles, Rcos(x±α), inverse trig, solving trig equations, small-angle approximations."},
+ {id:"explog",name:"Exponentials & logarithms",cat:"Pure",notes:"Laws of logs, e^x and ln, exponential growth/decay, reducing to linear form (log graphs)."},
+ {id:"diff",name:"Differentiation",cat:"Pure",notes:"Chain/product/quotient rules, implicit & parametric, stationary points, connected rates, differentiating e^x, ln, trig."},
+ {id:"integ",name:"Integration",cat:"Pure",notes:"Standard integrals, by substitution, by parts, using partial fractions & trig identities, areas, and differential equations."},
+ {id:"numerical",name:"Numerical methods",cat:"Pure",notes:"Locating roots (sign change), iteration x=g(x), Newton-Raphson, trapezium rule, staircase/cobweb diagrams."},
+ {id:"vectors",name:"Vectors",cat:"Pure",notes:"2D & 3D vectors, magnitude, unit vectors, position vectors, geometric problems."},
+ {id:"sampling",name:"Sampling",cat:"Statistics",notes:"Populations & samples, sampling methods (random, systematic, stratified, opportunity, quota), bias; the large data set."},
+ {id:"datapres",name:"Data presentation",cat:"Statistics",notes:"Histograms, cumulative frequency, box plots, measures of location & spread, outliers, correlation, regression lines & interpolation."},
+ {id:"probability",name:"Probability",cat:"Statistics",notes:"Venn diagrams, tree diagrams, conditional probability, independent & mutually exclusive events, the formulae."},
+ {id:"binomial",name:"Binomial distribution",cat:"Statistics",notes:"Conditions for B(n,p), P(X=x), cumulative probabilities, expectation."},
+ {id:"normal",name:"Normal distribution",cat:"Statistics",notes:"N(μ,σ²), standardising, finding probabilities & values, normal approximation to the binomial."},
+ {id:"hyptest",name:"Hypothesis testing",cat:"Statistics",notes:"Binomial tests, critical regions, p-values, 1- & 2-tailed, correlation tests, testing a normal mean."},
+ {id:"kinematics",name:"Kinematics",cat:"Mechanics",notes:"suvat for constant acceleration, motion graphs, variable acceleration via calculus, vectors in kinematics."},
+ {id:"forces",name:"Forces & Newton's laws",cat:"Mechanics",notes:"Resolving forces, F=ma, friction (μ), connected particles & pulleys, inclined planes, equilibrium."},
+ {id:"moments",name:"Moments",cat:"Mechanics",notes:"Turning effect of forces, equilibrium of rigid bodies, pivots, reaction forces."},
+ {id:"projectiles",name:"Projectiles",cat:"Mechanics",notes:"Resolving initial velocity, independent horizontal/vertical motion, time of flight, range, max height, trajectory equation."},
+];
+
+const SUBJECTS = {
+  ethics:{id:"ethics",name:"RS · Religion & Ethics",paper:"OCR H573/02",kind:"rs",exam:"2026-06-09",topics:ETHICS_TOPICS},
+  dct:{id:"dct",name:"RS · Christian Thought",paper:"OCR H573/03",kind:"rs",exam:"2026-06-15",topics:DCT_TOPICS},
+  maths:{id:"maths",name:"Maths · H240",paper:"OCR H240 (P2 & P3)",kind:"maths",exam:"2026-06-11",topics:MATHS_TOPICS},
+};
+
+/* ---------------- STATE ---------------- */
+const LS="revstudio_v1";
+let STATE=load();
+function load(){ try{const s=JSON.parse(localStorage.getItem(LS)); if(s&&s.v)return s;}catch(e){}
+  return {v:1,apiKey:"",model:"claude-sonnet-4-6",subject:"ethics",progress:{},convos:{},study:{}}; }
+function save(){ try{localStorage.setItem(LS,JSON.stringify(STATE));}catch(e){} }
+function subj(){ return SUBJECTS[STATE.subject]; }
+function prog(sid,tid){ STATE.progress[sid]=STATE.progress[sid]||{}; STATE.progress[sid][tid]=STATE.progress[sid][tid]||{conf:null,gaps:"",sessions:0,last:null,scores:[]}; return STATE.progress[sid][tid]; }
+function convo(sid,tid){ STATE.convos[sid]=STATE.convos[sid]||{}; return STATE.convos[sid][tid]||[]; }
+function setConvo(sid,tid,msgs){ STATE.convos[sid]=STATE.convos[sid]||{}; STATE.convos[sid][tid]=msgs.slice(-40); save(); }
+
+/* ---------------- HELPERS ---------------- */
+function el(t,c,h){const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;}
+function topicById(s,id){return s.topics.find(t=>t.id===id);}
+function ragC(c){return c==null?"rag-none":c>=80?"rag-green":c>=50?"rag-gold":"rag-red";}
+function ragColor(c){return c==null?"#cfcdda":c>=80?"var(--green)":c>=50?"var(--gold)":"var(--red)";}
+function ragLab(c){return c==null?"Not started":c>=80?"Confident":c>=50?"Shaky":"Weak";}
+function daysUntil(d){return Math.ceil((new Date(d+"T09:30:00")-new Date())/86400000);}
+function fmtDate(iso){return new Date(iso).toLocaleDateString("en-GB",{day:"numeric",month:"short"});}
+function escapeHtml(s){return (s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),1900);}
+
+/* tiny markdown renderer for Claude's replies */
+function md(src){
+  const lines=(src||"").replace(/\r/g,"").split("\n");
+  let html="",list=null;
+  const inline=s=>{
+    s=escapeHtml(s);
+    s=s.replace(/`([^`]+)`/g,'<code>$1</code>');
+    s=s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+    s=s.replace(/(^|[^*])\*([^*\n]+)\*/g,'$1<em>$2</em>');
+    return s;
+  };
+  const close=()=>{ if(list){html+="</"+list+">";list=null;} };
+  for(let raw of lines){
+    const line=raw.trimEnd();
+    if(/^#{2,4}\s+/.test(line)){ close(); html+="<h4>"+inline(line.replace(/^#{2,4}\s+/,""))+"</h4>"; continue; }
+    let m;
+    if(m=line.match(/^\s*[-*]\s+(.*)/)){ if(list!=="ul"){close();list="ul";html+="<ul>";} html+="<li>"+inline(m[1])+"</li>"; continue; }
+    if(m=line.match(/^\s*\d+\.\s+(.*)/)){ if(list!=="ol"){close();list="ol";html+="<ol>";} html+="<li>"+inline(m[1])+"</li>"; continue; }
+    if(line.trim()===""){ close(); continue; }
+    close(); html+="<p>"+inline(line)+"</p>";
+  }
+  close(); return html;
+}
+
+/* ---------------- ANTHROPIC API (streaming) ---------------- */
+let ABORT=null;
+async function streamClaude({system,messages,onText,maxTokens}){
+  if(!STATE.apiKey) throw new Error("NO_KEY");
+  ABORT=new AbortController();
+  const res=await fetch("https://api.anthropic.com/v1/messages",{
+    method:"POST",
+    headers:{
+      "content-type":"application/json",
+      "x-api-key":STATE.apiKey,
+      "anthropic-version":"2023-06-01",
+      "anthropic-dangerous-direct-browser-access":"true"
+    },
+    body:JSON.stringify({model:STATE.model,max_tokens:maxTokens||2000,system,messages,stream:true}),
+    signal:ABORT.signal
+  });
+  if(!res.ok){
+    let detail=""; try{const j=await res.json(); detail=j.error&&j.error.message?j.error.message:JSON.stringify(j);}catch(e){detail=await res.text().catch(()=>"");}
+    const err=new Error(detail||("HTTP "+res.status)); err.status=res.status; throw err;
+  }
+  const reader=res.body.getReader(), dec=new TextDecoder(); let buf="";
+  while(true){
+    const {done,value}=await reader.read(); if(done)break;
+    buf+=dec.decode(value,{stream:true});
+    let i;
+    while((i=buf.indexOf("\n"))>=0){
+      const line=buf.slice(0,i); buf=buf.slice(i+1);
+      if(line.startsWith("data:")){
+        const d=line.slice(5).trim(); if(!d||d==="[DONE]")continue;
+        try{const ev=JSON.parse(d);
+          if(ev.type==="content_block_delta"&&ev.delta&&ev.delta.text)onText(ev.delta.text);
+          if(ev.type==="error"&&ev.error)throw new Error(ev.error.message||"stream error");
+        }catch(e){ if(e instanceof SyntaxError)continue; throw e; }
+      }
+    }
+  }
+}
+
+/* ---------------- SYSTEM PROMPTS ---------------- */
+function serializeTopic(t){
+  let s="";
+  if(t.oneLiner) s+=t.oneLiner+"\n";
+  if(t.thinkers&&t.thinkers.length) s+="Key figures: "+t.thinkers.map(x=>x.who+(x.note?" — "+x.note:"")).join(" | ")+"\n";
+  if(t.concepts) s+="Key concepts: "+t.concepts.map(x=>x.term+": "+x.d).join(" | ")+"\n";
+  if(t.quotes) s+="Quotes: "+t.quotes.map(x=>'"'+x.text+'" ('+x.who+')').join(" | ")+"\n";
+  if(t.strengths) s+="Strengths (AO2): "+t.strengths.join("; ")+"\n";
+  if(t.weaknesses) s+="Weaknesses (AO2): "+t.weaknesses.join("; ")+"\n";
+  if(t.links) s+="Synoptic links: "+t.links.join("; ")+"\n";
+  if(t.notes) s+="Notes: "+(Array.isArray(t.notes)?t.notes.join("; "):t.notes)+"\n";
+  return s.trim();
+}
+function systemPrompt(s,t){
+  const p=prog(s.id,t.id);
+  const mem=(p.gaps&&p.gaps.trim())?("\nMEMORY — last session this student was shaky on: "+p.gaps+". Target these and check if they've improved.\n"):"";
+  const score=(p.conf!=null)?(" Their last recall score on this topic was "+p.conf+"%."):"";
+  if(s.kind==="maths"){
+    return "You are an expert OCR A-Level Mathematics tutor for "+s.paper+" (Pure, Statistics & Mechanics). You're helping a strong, capable student in the final days before the exam — they do past papers and want sharp, exam-focused help. Give fully worked solutions with a one-line reason for each step, correct notation, and exam technique (method marks, common traps). Be rigorous and concise; don't pad."+
+    "\n\nCURRENT TOPIC: "+t.name+" ("+t.cat+"). "+(t.notes||"")+mem+score+
+    "\n\nWhen you mark the student's work or run a drill, finish your message with exactly two lines:\nSCORE: <0-100 integer estimate of their mastery shown>\nGAPS: <short semicolon-separated list of what to fix>\nOtherwise do NOT output those lines.";
+  }
+  return "You are an expert OCR A-Level Religious Studies examiner-tutor for "+s.paper+" ("+s.name.replace(/^RS · /,"")+"). You're helping a strong student (working around A/A*, roughly 32/40) revise in the final days before the exam. Be accurate, exam-focused and thorough but not waffly. Use correct OCR terminology and named scholars, and weave in short quotes. Essays are marked out of 40 (AO1 knowledge 16, AO2 evaluation 24); top answers sustain a critical line of argument to a justified conclusion."+
+  "\n\nCURRENT TOPIC: "+t.name+" ("+t.cat+")\nTeach, quiz and mark strictly against this canonical spec content (add depth freely, but never omit it):\n"+serializeTopic(t)+mem+score+
+  "\n\nWhen you MARK a blurt or summarise a grilling, finish your message with exactly two lines:\nSCORE: <0-100 integer = honest estimate of how complete/accurate their recall was>\nGAPS: <short semicolon-separated list of the most important things they missed or got wrong>\nOtherwise do NOT output those lines.";
+}
+
+/* mode opening prompts */
+function modePrompt(kind,t,mode,userText){
+  const n='"'+t.name+'"';
+  if(kind==="maths"){
+    if(mode==="teach") return "Teach me "+n+" for the exam: the key methods/formulae, a fully worked example of the standard exam question, and the most common mistakes. Then give me ONE question to try.";
+    if(mode==="drill") return "Drill me on "+n+". Give me one exam-style question at a time, wait for my answer, then mark it and explain. After about 5, summarise with the SCORE and GAPS lines.";
+    if(mode==="stuck") return "I'm stuck on this "+t.name+" question:\n\n"+userText+"\n\nGive me a hint first; if I'm still stuck, the full method with a reason for each step. Show me where I went wrong.";
+    if(mode==="mark") return "Mark my working on this "+t.name+" question:\n\n"+userText+"\n\nPoint out errors, award/withhold method marks like an examiner, give the correct solution, and end with the SCORE and GAPS lines.";
+    return userText;
+  }
+  if(mode==="teach") return "Teach me "+n+" thoroughly for the exam — all the scholars, the key concepts, the best short quotes, and the strongest arguments for AND against. Be exam-focused. Then ask me 2 quick questions to check I followed.";
+  if(mode==="grill") return "Grill me on "+n+". Ask ONE question at a time, wait for my answer, and push me on weak spots. After about 6 questions, summarise my strengths and top gaps, ending with the SCORE and GAPS lines.";
+  if(mode==="blurt") return "Here is my blurt — everything I can remember about "+n+" — without looking:\n\n"+userText+"\n\nMark it strictly against the spec content: (1) what I got right, (2) what I MISSED (scholars, concepts, quotes, AO2 arguments), (3) anything wrong or muddled. Be specific. End with the SCORE and GAPS lines so I can track it.";
+  return userText;
+}
+
+/* ---------------- ROUTER ---------------- */
+const PAGES={dash:renderDash,study:renderStudy};
+let CUR="dash";
+function go(pg,arg){ CUR=pg;
+  document.querySelectorAll(".tab[data-go]").forEach(b=>b.classList.toggle("on",b.dataset.go===pg));
+  const host=document.getElementById("pages"); host.innerHTML="";
+  const page=el("div","page on"); host.appendChild(page); PAGES[pg](page,arg);
+  window.scrollTo(0,0); updatePill();
+}
+document.querySelectorAll(".tab[data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
+function updatePill(){ const s=subj(),d=daysUntil(s.exam);
+  document.getElementById("countpill").textContent=d>0?d+(d===1?" day":" days")+" to go":"exam time"; }
+
+/* subject selector */
+function buildSubSel(){ const sel=document.getElementById("subSel"); sel.innerHTML="";
+  Object.values(SUBJECTS).forEach(s=>sel.appendChild(new Option(s.name,s.id)));
+  sel.value=STATE.subject;
+  sel.onchange=()=>{ STATE.subject=sel.value; save(); go("dash"); };
+}
+
+/* ---------------- DASHBOARD ---------------- */
+function renderDash(p){
+  const s=subj();
+  const done=s.topics.filter(t=>prog(s.id,t.id).sessions>0).length;
+  const confs=s.topics.map(t=>prog(s.id,t.id).conf).filter(c=>c!=null);
+  const avg=confs.length?Math.round(confs.reduce((a,b)=>a+b,0)/confs.length):0;
+  const green=s.topics.filter(t=>{const c=prog(s.id,t.id).conf;return c!=null&&c>=80;}).length;
+
+  p.appendChild(el("div","eyebrow",s.paper+" · "+s.name.replace(/^.*· /,"")));
+  p.appendChild(el("h1","Dashboard"));
+  p.appendChild(el("p","lede",s.kind==="maths"
+    ?"Your maths loop is past papers + ask when stuck. This is the live tutor for the 'ask' part — explain, drill, mark working — and it tracks your weak topics."
+    :"Learn it live, blurt it to the tutor, get corrected. It remembers what you've covered and where you're weak, and tells you what to hit next."));
+
+  if(!STATE.apiKey){
+    const c=el("div","callout"); c.style.margin="1.2rem 0";
+    c.innerHTML="<b>One-time setup:</b> connect your Anthropic API key to switch the tutor on. ";
+    const b=el("button","btn acc sm","Connect Claude"); b.style.marginTop=".6rem"; b.onclick=openSettings;
+    c.appendChild(document.createElement("br")); c.appendChild(b);
+    p.appendChild(c);
+  }
+
+  const m=el("div","metrics");
+  const d=daysUntil(s.exam);
+  m.appendChild(metric("Days to exam",d>0?d:"—",fmtDate(s.exam)+(s.kind==="maths"?"":" · 9:30am"),true));
+  m.appendChild(metric("Topics started",done+" / "+s.topics.length,(s.topics.length-done)+" untouched"));
+  m.appendChild(metric("Confident",green+" / "+s.topics.length,"80%+ recall"));
+  m.appendChild(metric("Avg recall",avg+"%","across started topics"));
+  p.appendChild(m);
+
+  const next=[...s.topics].sort((a,b)=>priority(s,b)-priority(s,a)).slice(0,3);
+  const rn=el("div","panel"); rn.style.marginBottom="1.2rem"; rn.appendChild(el("h2","Revise next"));
+  next.forEach(t=>{const c=prog(s.id,t.id).conf;
+    const row=el("div"); row.style.cssText="display:flex;align-items:center;gap:.8rem;padding:.55rem 0;border-bottom:1px solid var(--lsoft);cursor:pointer";
+    row.onclick=()=>go("study",t.id);
+    row.innerHTML='<span class="dot '+ragC(c)+'"></span><div style="flex:1"><b style="font-weight:640">'+t.name+'</b> <span class="tag cat" style="margin-left:.3rem">'+t.cat+'</span><div style="font-size:.77rem;color:var(--faint);margin-top:.1rem">'+ragLab(c)+(prog(s.id,t.id).gaps?" · gaps: "+escapeHtml(prog(s.id,t.id).gaps).slice(0,80):"")+'</div></div><button class="btn sm acc">Study →</button>';
+    rn.appendChild(row);
+  });
+  p.appendChild(rn);
+
+  p.appendChild(sectionHead("All topics"));
+  const grid=el("div","tgrid"); s.topics.forEach(t=>grid.appendChild(topicCard(s,t))); p.appendChild(grid);
+}
+function priority(s,t){const pr=prog(s.id,t.id);let v=0;if(pr.sessions===0)v+=1000;v+=100-(pr.conf==null?0:pr.conf);if(pr.last)v+=Math.min(50,(Date.now()-new Date(pr.last))/86400000);return v;}
+function metric(l,v,sub,hero){const e=el("div","metric"+(hero?" hero":""));e.innerHTML='<div class="lab">'+l+'</div><div class="val">'+v+'</div><div class="vsub">'+(sub||"")+'</div>';return e;}
+function sectionHead(t){const s=el("div","sectionhead");s.innerHTML="<h2>"+t+"</h2><div class='rule'></div>";return s;}
+function topicCard(s,t){const c=prog(s.id,t.id).conf,card=el("div","tcard");
+  card.innerHTML='<div class="tname"><span class="dot '+ragC(c)+'"></span>'+t.name+'</div><div class="tmeta">'+t.cat+'</div><div class="barback"><div class="barfill" style="width:'+(c==null?0:c)+'%;background:'+ragColor(c)+'"></div></div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:.55rem"><span style="font-size:.75rem;color:var(--soft)">'+(c==null?"Not started":ragLab(c)+" · "+c+"%")+'</span><button class="btn sm acc">Study</button></div>';
+  card.onclick=()=>go("study",t.id); return card;
+}
+
+/* ---------------- STUDY (chat) ---------------- */
+let STUDY={topicId:null,mode:"ask",busy:false};
+function renderStudy(p,argTopic){
+  const s=subj();
+  const tid=argTopic||STUDY.topicId||(s.topics[0]&&s.topics[0].id);
+  STUDY.topicId=tid; const t=topicById(s,tid);
+
+  // header
+  const head=el("div","chathead");
+  const sel=el("select"); sel.style.maxWidth="280px";
+  const cats={}; s.topics.forEach(x=>{(cats[x.cat]=cats[x.cat]||[]).push(x);});
+  Object.keys(cats).forEach(cat=>{ const og=document.createElement("optgroup"); og.label=cat;
+    cats[cat].forEach(x=>og.appendChild(new Option(x.name,x.id))); sel.appendChild(og); });
+  sel.value=tid; sel.onchange=()=>go("study",sel.value);
+  const left=el("div"); left.style.flex="1"; left.style.minWidth="200px";
+  left.appendChild(el("div","eyebrow",s.paper+" · "+t.cat));
+  const h=el("h1",null,t.name); left.appendChild(h);
+  head.appendChild(left);
+  const right=el("div"); right.style.cssText="display:flex;flex-direction:column;gap:.5rem;align-items:flex-end";
+  right.appendChild(sel);
+  const c=prog(s.id,tid).conf;
+  right.appendChild(el("div",null,'<span class="dot '+ragC(c)+'" style="margin-right:.3rem"></span><span style="font-size:.8rem;color:var(--soft)">'+ragLab(c)+(c!=null?" · "+c+"%":"")+'</span>'));
+  head.appendChild(right);
+  p.appendChild(head);
+
+  // memory line
+  const pr=prog(s.id,tid);
+  if(pr.gaps&&pr.gaps.trim()){ const ml=el("div","memline"); ml.innerHTML="<b>Claude remembers</b> — work on: "+escapeHtml(pr.gaps); p.appendChild(ml); }
+
+  if(!STATE.apiKey){
+    const c2=el("div","callout"); c2.style.margin="1rem 0";
+    c2.innerHTML="<b>Connect Claude to start.</b> Add your Anthropic API key in Settings (it stays in this browser). ";
+    const b=el("button","btn acc sm","Open settings"); b.onclick=openSettings; c2.appendChild(el("br")); b.style.marginTop=".5rem"; c2.appendChild(b);
+    p.appendChild(c2);
+  }
+
+  // chips (modes)
+  const chips=el("div","chips"); chips.style.marginTop=".6rem";
+  const modes = s.kind==="maths"
+    ? [["teach","📖 Teach me this"],["drill","🎯 Drill me"],["stuck","❓ I'm stuck (paste Q)"],["mark","✍️ Mark my working"]]
+    : [["teach","📖 Teach me this"],["blurt","🧠 Mark my blurt"],["grill","🎯 Grill me"]];
+  modes.forEach(([mode,label])=>{ const ch=el("button","chip",label); ch.onclick=()=>triggerMode(mode); chips.appendChild(ch); });
+  const nw=el("button","chip","↺ New session"); nw.onclick=()=>{ if(STUDY.busy)return; setConvo(s.id,tid,[]); go("study",tid); }; chips.appendChild(nw);
+  p.appendChild(chips);
+
+  // messages
+  const msgs=el("div","msgs"); msgs.id="msgs"; p.appendChild(msgs);
+  const existing=convo(s.id,tid);
+  if(existing.length===0){ msgs.appendChild(emptyHint(s,t)); }
+  else existing.forEach(mm=>msgs.appendChild(bubble(mm.role,mm.display||mm.content,mm.saved)));
+  scrollMsgs();
+
+  // composer
+  const comp=el("div","composer");
+  const ta=el("textarea"); ta.id="composerInput"; ta.placeholder=s.kind==="maths"?"Ask anything, or pick an action above…":"Ask a follow-up, or pick an action above…";
+  ta.rows=2;
+  ta.addEventListener("input",()=>{ta.style.height="auto";ta.style.height=Math.min(200,ta.scrollHeight)+"px";});
+  ta.addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendCurrent();} });
+  comp.appendChild(ta);
+  const row=el("div","row");
+  const hint=el("div","hint","<span class='kbd'>Enter</span> to send · <span class='kbd'>Shift</span>+<span class='kbd'>Enter</span> for newline");
+  const stop=el("button","btn ghost sm","Stop"); stop.id="stopBtn"; stop.style.display="none"; stop.onclick=()=>{if(ABORT)ABORT.abort();};
+  const sendb=el("button","btn acc","Send"); sendb.id="sendBtn"; sendb.onclick=()=>sendCurrent();
+  row.appendChild(hint); row.appendChild(stop); row.appendChild(sendb);
+  comp.appendChild(row); p.appendChild(comp);
+
+  STUDY.pendingMode=null;
+}
+function emptyHint(s,t){
+  const e=el("div","empty");
+  e.innerHTML = s.kind==="maths"
+    ? "Pick an action above — <b>Teach me this</b> for a refresher, <b>Drill me</b> for practice questions, or paste a question you're stuck on."
+    : "Tap <b>Teach me this</b> to learn it live (then ask follow-ups), or <b>Mark my blurt</b> to brain-dump and get corrected. Everything you do here updates your dashboard.";
+  return e;
+}
+function bubble(role,content,saved){
+  const m=el("div","msg "+(role==="user"?"user":"ai"));
+  m.appendChild(el("div","av",role==="user"?"You":"AI"));
+  const b=el("div","bubble");
+  if(role==="user") b.innerHTML="<p>"+escapeHtml(content).replace(/\n/g,"<br>")+"</p>";
+  else b.innerHTML=md(content);
+  if(saved) b.appendChild(el("div","savedchip","✓ saved "+saved));
+  m.appendChild(b); return m;
+}
+function scrollMsgs(){const m=document.getElementById("msgs");if(m)m.scrollTop=m.scrollHeight;}
+
+function triggerMode(mode){
+  if(STUDY.busy)return;
+  const s=subj(),t=topicById(s,STUDY.topicId);
+  const needsText=(s.kind==="maths"&&(mode==="stuck"||mode==="mark"))||(s.kind!=="maths"&&mode==="blurt");
+  if(needsText){
+    STUDY.pendingMode=mode;
+    const ta=document.getElementById("composerInput");
+    ta.placeholder = mode==="blurt"?"Brain-dump everything you remember about "+t.name+", then hit Send…"
+      : mode==="stuck"?"Paste the question you're stuck on (and your working so far), then Send…"
+      : "Paste the question and your full working, then Send…";
+    ta.focus();
+    document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));
+    toast(mode==="blurt"?"Blurt away — Send when done":"Paste it in, then Send");
+    return;
+  }
+  // instant modes
+  send(modePrompt(s.kind,t,mode), null);
+}
+function sendCurrent(){
+  if(STUDY.busy)return;
+  const ta=document.getElementById("composerInput"); const text=ta.value.trim(); if(!text)return;
+  const s=subj(),t=topicById(s,STUDY.topicId);
+  let apiText=text, mode=STUDY.pendingMode;
+  if(mode) apiText=modePrompt(s.kind,t,mode,text);
+  STUDY.pendingMode=null; ta.value=""; ta.style.height="auto";
+  send(apiText, text);
+}
+async function send(apiText, displayText){
+  const s=subj(),t=topicById(s,STUDY.topicId);
+  if(!STATE.apiKey){ openSettings(); return; }
+  const msgsEl=document.getElementById("msgs");
+  const hint=msgsEl.querySelector(".empty"); if(hint)hint.remove();
+
+  let history=convo(s.id,t.id).map(m=>({role:m.role,content:m.content}));
+  const userMsg={role:"user",content:apiText,display:displayText||apiText};
+  history=convo(s.id,t.id).concat([userMsg]);
+  msgsEl.appendChild(bubble("user",userMsg.display)); scrollMsgs();
+
+  // ai bubble with typing indicator
+  const aiWrap=el("div","msg ai"); aiWrap.appendChild(el("div","av","AI"));
+  const aiBub=el("div","bubble"); const stream=el("pre","stream"); aiBub.appendChild(stream);
+  const typing=el("div","typing","<span></span><span></span><span></span>"); aiBub.appendChild(typing);
+  aiWrap.appendChild(aiBub); msgsEl.appendChild(aiWrap); scrollMsgs();
+
+  setBusy(true);
+  let full="";
+  try{
+    await streamClaude({
+      system:systemPrompt(s,t),
+      messages:history.map(m=>({role:m.role,content:m.content})),
+      maxTokens: (STUDY.pendingMode==="teach"||/Teach me/.test(apiText))?3000:2000,
+      onText:(txt)=>{ if(typing.parentNode)typing.remove(); full+=txt; stream.textContent=full; scrollMsgs(); }
+    });
+  }catch(err){
+    if(typing.parentNode)typing.remove();
+    if(err.name==="AbortError"){ stream.textContent=full+(full?"\n\n":"")+"⏹ stopped."; }
+    else { aiBub.innerHTML=errorHtml(err); setBusy(false);
+      // still save the user msg so they can retry
+      setConvo(s.id,t.id,history); return; }
+  }
+  setBusy(false);
+
+  // parse SCORE / GAPS, clean display
+  const {clean,score,gaps}=parseMeta(full);
+  aiBub.innerHTML=md(clean);
+  const pr=prog(s.id,t.id); pr.sessions++; pr.last=new Date().toISOString();
+  let savedLabel=null;
+  if(score!=null){ pr.conf=score; pr.scores.push({date:pr.last,score}); savedLabel=score+"% · "+t.name; aiBub.appendChild(el("div","savedchip","✓ saved "+savedLabel)); }
+  if(gaps!=null) pr.gaps=gaps;
+  const aiMsg={role:"assistant",content:full,display:clean,saved:savedLabel};
+  setConvo(s.id,t.id,history.concat([aiMsg]));
+  save();
+  // refresh header rag if score changed
+  if(score!=null){ const dot=document.querySelector(".chathead .dot"); }
+}
+function parseMeta(text){
+  let score=null,gaps=null;
+  const sm=text.match(/SCORE:\s*(\d{1,3})/i); if(sm)score=Math.max(0,Math.min(100,parseInt(sm[1],10)));
+  const gm=text.match(/GAPS:\s*(.+)/i); if(gm)gaps=gm[1].trim();
+  const clean=text.replace(/^\s*SCORE:\s*\d{1,3}\s*$/im,"").replace(/^\s*GAPS:\s*.+$/im,"").trim();
+  return {clean,score,gaps};
+}
+function setBusy(b){ STUDY.busy=b;
+  const sb=document.getElementById("sendBtn"),st=document.getElementById("stopBtn");
+  if(sb)sb.style.display=b?"none":"inline-flex";
+  if(st)st.style.display=b?"inline-flex":"none";
+}
+function errorHtml(err){
+  let msg=err.message||"Something went wrong.";
+  if(err.message==="NO_KEY") return "<p>No API key set. Open Settings to connect Claude.</p>";
+  if(err.status===401) return "<p>⚠️ Your API key was rejected (401). Double-check it in Settings.</p>";
+  if(err.status===429) return "<p>⚠️ Rate limited or out of credit (429). Wait a moment or top up credit in the Anthropic console.</p>";
+  if(err.status===400&&/model/i.test(msg)) return "<p>⚠️ That model isn't available on your key. Pick another in Settings.</p>";
+  if(/Failed to fetch|NetworkError|load failed/i.test(msg)) return "<p>⚠️ Couldn't reach the API — check your internet connection.</p>";
+  return "<p>⚠️ "+escapeHtml(msg)+"</p>";
+}
+
+/* ---------------- SETTINGS ---------------- */
+function openSettings(){ document.getElementById("keyInput").value=STATE.apiKey||"";
+  document.getElementById("modelInput").value=STATE.model; document.getElementById("settingsModal").classList.add("on"); }
+function closeSettings(){ document.getElementById("settingsModal").classList.remove("on"); }
+document.getElementById("settingsBtn").onclick=openSettings;
+document.getElementById("closeSettings").onclick=closeSettings;
+document.getElementById("saveSettings").onclick=()=>{
+  STATE.apiKey=document.getElementById("keyInput").value.trim();
+  STATE.model=document.getElementById("modelInput").value; save(); closeSettings();
+  toast(STATE.apiKey?"Saved — tutor is live":"Saved"); go(CUR,STUDY.topicId);
+};
+document.getElementById("clearData").onclick=()=>{ if(confirm("Clear all saved progress and conversations? (Your API key stays.)")){ STATE.progress={};STATE.convos={};save();toast("Progress cleared");go("dash"); } };
+document.getElementById("settingsModal").onclick=(e)=>{ if(e.target.id==="settingsModal")closeSettings(); };
+
+/* export / import (progress only, not key) */
+document.getElementById("exportBtn").onclick=()=>{
+  const data={v:1,progress:STATE.progress,model:STATE.model};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const a=el("a");a.href=URL.createObjectURL(blob);a.download="revision-studio-progress.json";a.click();toast("Progress exported");
+};
+document.getElementById("importBtn").onclick=()=>document.getElementById("importFile").click();
+document.getElementById("importFile").onchange=(e)=>{const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(d.progress){STATE.progress=d.progress;save();toast("Progress imported");go("dash");}}catch(err){toast("Couldn't read that file");}};r.readAsText(f);
+};
+
+/* ---------------- INIT ---------------- */
+buildSubSel();
+go("dash");
+updatePill();
+</script>
+</body>
+</html>

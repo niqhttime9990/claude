@@ -1,0 +1,23 @@
+{
+  "name": "exam-countdown",
+  "version": "1.0.0",
+  "description": "Always-on-top exam countdown widget",
+  "author": "Tom",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.tomfreise.examcountdown",
+    "productName": "ExamCountdown",
+    "files": ["main.js", "widget.html"],
+    "win": { "target": ["portable"] },
+    "portable": { "artifactName": "ExamCountdown.exe" }
+  }
+}
