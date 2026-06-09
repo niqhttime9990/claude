@@ -17,6 +17,17 @@ server, no client secret).
 
 ---
 
+## Two ways to run it
+
+- **No-install (easiest):** the web version in [`web/index.html`](web/index.html).
+  Host it on GitHub Pages and just open the link in Chrome/Edge — no Node, no
+  install. Click **⧉ Pop out** for an always-on-top mini-player. See
+  [`web/README.md`](web/README.md).
+- **Desktop app (true overlay):** the Electron version below — a frameless,
+  always-on-top window with a click-through hotkey. Needs Node.js.
+
+---
+
 ## 1. One-time Spotify setup (~1 min)
 
 The Client ID is already baked in, so there's nothing to paste. You only need to
