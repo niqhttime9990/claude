@@ -1,0 +1,46 @@
+name: Build Spotify Overlay (Windows)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "claude/gracious-ramanujan-59ckix" ]
+    paths: [ "spotify-overlay/**", ".github/workflows/build-overlay.yml" ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: spotify-overlay
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build portable .exe
+        run: npx electron-builder --win portable --publish never
+
+      - name: Upload .exe as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpotifyOverlay-exe
+          path: spotify-overlay/dist/*.exe
+
+      - name: Publish to Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: spotify-overlay-v1
+          name: Spotify Overlay (Windows)
+          body: |
+            Double-click **SpotifyOverlay.exe** to run — no install.
+            First run: in your Spotify app settings add the redirect URI
+            `http://127.0.0.1:8888/callback`, then click Connect Spotify.
+          files: spotify-overlay/dist/*.exe

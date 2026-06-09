@@ -4,11 +4,21 @@
   "description": "An always-on-top Spotify now-playing overlay with listening history & stats.",
   "main": "src/main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dist": "electron-builder --win portable"
   },
   "author": "",
   "license": "MIT",
+  "build": {
+    "appId": "com.niqhttime9990.spotifyoverlay",
+    "productName": "Spotify Overlay",
+    "directories": { "output": "dist" },
+    "files": ["src/**/*", "package.json"],
+    "win": { "target": "portable" },
+    "portable": { "artifactName": "SpotifyOverlay.exe" }
+  },
   "devDependencies": {
-    "electron": "^30.0.0"
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3"
   }
 }
