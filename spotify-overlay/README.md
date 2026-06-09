@@ -17,32 +17,32 @@ server, no client secret).
 
 ---
 
-## 1. Make a Spotify app (one-time, ~2 min)
+## 1. One-time Spotify setup (~1 min)
 
-The overlay talks to **your** Spotify account, so Spotify needs to know about it.
+The Client ID is already baked in, so there's nothing to paste. You only need to
+whitelist the redirect URI on the Spotify app it belongs to:
 
-1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and **Create app**.
-2. Under **Redirect URIs**, add exactly:
+1. Open the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) → your app → **Settings → Edit**.
+2. Under **Redirect URIs**, add exactly this and save:
 
    ```
    http://127.0.0.1:8888/callback
    ```
 
-3. For **Which API/SDKs** tick **Web API**, save.
-4. Open the app → **Settings** → copy the **Client ID**.
-
-> No client secret is needed — the app uses the PKCE flow.
+> A Spotify **Client ID** is public (it rides in the login URL), so shipping it
+> is fine. The **Client Secret** is never used — this app uses the PKCE flow. To
+> point it at a different app, click *Change Client ID* in the overlay.
 
 ## 2. Run it
 
-```bash
-cd spotify-overlay
-npm install      # downloads Electron
-npm start
-```
+- **Windows:** double-click **`start.bat`**.
+- **macOS / Linux:** run **`./start.sh`** (or `npm install && npm start`).
 
-On first launch, paste your **Client ID**, click **Save & connect**, and approve
-in the browser tab that opens. That's it — the widget starts tracking.
+The launcher installs dependencies the first time, then opens the overlay. Click
+**Connect Spotify**, approve in the browser tab, and it starts tracking.
+
+> Requires [Node.js](https://nodejs.org) (LTS) installed once. The launcher tells
+> you if it's missing.
 
 ## 3. Use it
 
@@ -71,6 +71,7 @@ in the browser tab that opens. That's it — the widget starts tracking.
 
 ```
 spotify-overlay/
+  start.bat / start.sh   double-click launchers (install deps + run)
   src/
     main.js              Electron main: window, OAuth, polling, history, stats
     preload.js           contextBridge API exposed to the renderer

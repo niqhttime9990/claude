@@ -7,7 +7,7 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 const SIZES = {
   np: [340, 152],
   setup: [360, 270],
-  connect: [340, 180],
+  connect: [340, 230],
   stats: [384, 470],
 };
 
@@ -42,7 +42,8 @@ function flash(msg) {
 // ---- state routing ----
 async function refreshState() {
   const st = await window.api.getState();
-  $('#redirect').textContent = st.redirectUri;
+  const r = $('#redirect'); if (r) r.textContent = st.redirectUri;
+  const r2 = $('#redirect2'); if (r2) r2.textContent = st.redirectUri;
   if (!st.hasClientId) return show('setup');
   if (!st.connected) return show('connect');
   show('np');

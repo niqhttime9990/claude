@@ -19,6 +19,12 @@ const SCOPES = [
 
 const POLL_MS = 3000;
 
+// Pre-filled so there's nothing to paste on first run. A Spotify *Client ID* is
+// a public identifier (it's in the login URL anyway, safe to ship). The Client
+// Secret is NOT public and is never used here — this app uses the PKCE flow.
+// Blank this or override it in the UI to use a different Spotify app.
+const DEFAULT_CLIENT_ID = 'dbf3623663944f53ac121ec628e024ab';
+
 const CONFIG_PATH = () => path.join(app.getPath('userData'), 'config.json');
 const TOKENS_PATH = () => path.join(app.getPath('userData'), 'tokens.json');
 const HISTORY_PATH = () => path.join(app.getPath('userData'), 'history.jsonl');
@@ -36,7 +42,11 @@ function readJSON(p, fallback) {
 function writeJSON(p, obj) {
   try { fs.writeFileSync(p, JSON.stringify(obj, null, 2)); } catch (e) { console.error('writeJSON', e); }
 }
-function getConfig() { return readJSON(CONFIG_PATH(), {}); }
+function getConfig() {
+  const c = readJSON(CONFIG_PATH(), {});
+  if (!c.clientId && DEFAULT_CLIENT_ID) c.clientId = DEFAULT_CLIENT_ID;
+  return c;
+}
 function setConfig(patch) { const c = { ...getConfig(), ...patch }; writeJSON(CONFIG_PATH(), c); return c; }
 function getTokens() { return readJSON(TOKENS_PATH(), null); }
 function setTokens(t) { writeJSON(TOKENS_PATH(), t); }

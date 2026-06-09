@@ -103,6 +103,8 @@ body.clickthrough .card { opacity: 0.78; }
   color: var(--fg); border-radius: 16px; font-size: 11px; cursor: pointer;
 }
 .row-links { display: flex; justify-content: space-between; font-size: 11px; }
+.hint { font-size: 10px; color: var(--muted); line-height: 1.45; }
+.hint code { color: #7ee2a0; user-select: text; -webkit-user-select: text; word-break: break-all; }
 
 /* ---- stats ---- */
 .stats h4 { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
