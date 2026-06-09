@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spotify Overlay</title>
+<style>
+  :root { --green:#1db954; --bg:rgba(18,18,18,0.92); --fg:#e8e8e8; --muted:#9aa0a6; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html,body { height:100%; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--fg); }
+  body {
+    background:#0b0b0b radial-gradient(1200px 600px at 70% -10%, #1b3a26, #0b0b0b 60%) no-repeat;
+    display:flex; align-items:center; justify-content:center; padding:20px; user-select:none;
+  }
+  body.pip { padding:0; background:#000; }
+  .card {
+    width:344px; background:var(--bg); border:1px solid rgba(255,255,255,0.08);
+    border-radius:14px; overflow:hidden; box-shadow:0 18px 50px rgba(0,0,0,0.5);
+  }
+  body.pip .card { width:100vw; height:100vh; border-radius:0; box-shadow:none; }
+  .bar { display:flex; align-items:center; justify-content:space-between; height:28px; padding:0 8px; }
+  .grip { font-size:11px; letter-spacing:.4px; color:var(--muted); font-weight:600; }
+  .bar-btns { display:flex; gap:2px; }
+  .ic { width:24px; height:20px; background:none; border:0; color:var(--muted); cursor:pointer; border-radius:6px; font-size:12px; }
+  .ic:hover { background:rgba(255,255,255,.1); color:var(--fg); }
+  .view { display:none; }
+  .view.active { display:block; }
+  /* now playing */
+  .np { display:flex; gap:12px; padding:6px 12px 14px; align-items:center; }
+  .art { width:80px; height:80px; flex:0 0 80px; border-radius:8px; background:#2a2a2a center/cover no-repeat; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,.4); }
+  .np-info { flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; }
+  .title { font-size:14px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .artist { font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .progress { height:4px; border-radius:2px; background:rgba(255,255,255,.16); overflow:hidden; }
+  .progress-fill { height:100%; width:0; background:var(--green); }
+  .times { display:flex; align-items:center; justify-content:space-between; font-size:10px; color:var(--muted); }
+  .controls { display:flex; align-items:center; gap:12px; }
+  .ctl { background:none; border:0; color:var(--fg); cursor:pointer; font-size:15px; }
+  .ctl:hover { color:var(--green); }
+  .ctl.big { font-size:21px; }
+  /* panes */
+  .pane { padding:6px 16px 16px; display:flex; flex-direction:column; gap:10px; }
+  .lead { font-size:14px; font-weight:600; }
+  .hint { font-size:11px; color:var(--muted); line-height:1.5; }
+  .redirect { display:block; font-size:11px; background:rgba(0,0,0,.45); padding:7px 9px; border-radius:6px; color:#7ee2a0; word-break:break-all; user-select:text; }
+  .primary { padding:10px; border:0; border-radius:22px; background:var(--green); color:#04130a; font-weight:700; font-size:13px; cursor:pointer; }
+  .primary:hover { filter:brightness(1.08); }
+  .ghost { align-self:flex-start; padding:5px 11px; background:none; border:1px solid rgba(255,255,255,.18); color:var(--fg); border-radius:16px; font-size:11px; cursor:pointer; }
+  .row-links { display:flex; justify-content:space-between; font-size:11px; }
+  .link { color:var(--green); cursor:pointer; text-decoration:none; }
+  .link:hover { text-decoration:underline; }
+  /* stats */
+  .stats h4 { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+  .kpi { background:rgba(255,255,255,.05); border-radius:8px; padding:8px 4px; text-align:center; }
+  .kpi b { display:block; font-size:16px; color:var(--green); }
+  .kpi span { font-size:9px; color:var(--muted); }
+  .days { display:flex; align-items:flex-end; gap:3px; height:46px; }
+  .day { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; height:100%; justify-content:flex-end; }
+  .day-bar { width:100%; min-height:2px; background:var(--green); border-radius:2px 2px 0 0; }
+  .day span { font-size:7px; color:var(--muted); }
+  .bars { display:flex; flex-direction:column; gap:4px; }
+  .brow { position:relative; height:22px; border-radius:5px; overflow:hidden; background:rgba(255,255,255,.05); display:flex; align-items:center; }
+  .brow-fill { position:absolute; inset:0 auto 0 0; background:rgba(29,185,84,.28); }
+  .brow-label { position:relative; padding-left:8px; font-size:11px; z-index:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; }
+  .brow-count { position:relative; padding-right:8px; font-size:11px; color:var(--green); z-index:1; font-weight:700; }
+  .muted { font-size:11px; color:var(--muted); }
+  .toast { margin:0 12px 12px; font-size:11px; color:#ffd; background:rgba(0,0,0,.6); padding:6px 10px; border-radius:8px; display:none; }
+  .toast.show { display:block; }
+</style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="bar">
+      <span class="grip">Spotify</span>
+      <div class="bar-btns">
+        <button id="popout" class="ic" title="Pop out (always on top — Chrome/Edge)">&#9697;</button>
+        <button id="to-stats" class="ic" title="Stats">&#9646;&#9646;&#9646;</button>
+        <button id="gear" class="ic" title="Account">&#9881;</button>
+      </div>
+    </div>
+
+    <!-- CONNECT -->
+    <section class="view active" data-view="connect">
+      <div class="pane">
+        <p class="lead">Connect Spotify</p>
+        <p class="hint">One-time: add this exact <b>Redirect URI</b> in your Spotify app (Dashboard → your app → Settings → Edit → Redirect URIs):</p>
+        <code id="redirect" class="redirect"></code>
+        <button id="connect-btn" class="primary">Connect Spotify</button>
+        <p id="connect-msg" class="hint"></p>
+      </div>
+    </section>
+
+    <!-- NOW PLAYING -->
+    <section class="view" data-view="np">
+      <div class="np">
+        <div id="art" class="art" title="Open in Spotify"></div>
+        <div class="np-info">
+          <div id="title" class="title">Loading&#8230;</div>
+          <div id="artist" class="artist"></div>
+          <div class="progress"><div id="fill" class="progress-fill"></div></div>
+          <div class="times">
+            <span id="cur">0:00</span>
+            <div class="controls">
+              <button id="prev" class="ctl" title="Previous">&#9198;</button>
+              <button id="play-toggle" class="ctl big" title="Play / Pause">&#9654;</button>
+              <button id="next" class="ctl" title="Next">&#9197;</button>
+            </div>
+            <span id="dur">0:00</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STATS -->
+    <section class="view" data-view="stats">
+      <div class="pane stats">
+        <div class="kpis">
+          <div class="kpi"><b id="stat-plays">0</b><span>plays</span></div>
+          <div class="kpi"><b id="stat-tracks">0</b><span>tracks</span></div>
+          <div class="kpi"><b id="stat-artists">0</b><span>artists</span></div>
+          <div class="kpi"><b id="stat-mins">0</b><span>minutes</span></div>
+        </div>
+        <h4>Last 14 days</h4>
+        <div id="days" class="days"></div>
+        <h4>Top artists</h4>
+        <div id="top-artists" class="bars"></div>
+        <h4>Top tracks</h4>
+        <div id="top-tracks" class="bars"></div>
+        <button id="stats-back" class="ghost">&#8592; Back</button>
+      </div>
+    </section>
+
+    <!-- ACCOUNT -->
+    <section class="view" data-view="account">
+      <div class="pane">
+        <p class="lead">Account</p>
+        <p class="hint">History is stored in this browser only. Controls (play/pause/skip) need Spotify Premium and an active device.</p>
+        <div class="row-links">
+          <a id="account-back" class="link">&#8592; Back</a>
+          <a id="logout" class="link">Disconnect</a>
+        </div>
+      </div>
+    </section>
+
+    <div id="toast" class="toast"></div>
+  </div>
+
+<script>
+const CLIENT_ID = 'dbf3623663944f53ac121ec628e024ab';
+const SCOPES = 'user-read-currently-playing user-read-playback-state user-modify-playback-state user-read-recently-played';
+const REDIRECT_URI = location.origin + location.pathname;
+const TOKEN_KEY = 'spov_tokens';
+const HIST_KEY = 'spov_history';
+
+// cache element refs so they keep working after the card moves into a pop-out window
+const R = {};
+['card','redirect','connect-btn','connect-msg','art','title','artist','fill','cur','dur',
+ 'play-toggle','prev','next','popout','to-stats','gear','stats-back','account-back','logout',
+ 'stat-plays','stat-tracks','stat-artists','stat-mins','days','top-artists','top-tracks','toast']
+ .forEach(id => R[id] = document.getElementById(id));
+const views = {};
+document.querySelectorAll('.view').forEach(v => views[v.dataset.view] = v);
+
+let view = 'connect';
+let np = null;
+let baseline = null;
+
+function show(v){ view = v; Object.entries(views).forEach(([k,el]) => el.classList.toggle('active', k===v)); }
+function fmt(ms){ if(ms==null||ms<0) ms=0; const s=Math.floor(ms/1000); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function toast(m){ R.toast.textContent=m; R.toast.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>R.toast.classList.remove('show'),3000); }
+
+// ---- tokens ----
+const getTokens = () => { try { return JSON.parse(localStorage.getItem(TOKEN_KEY)); } catch { return null; } };
+const setTokens = t => localStorage.setItem(TOKEN_KEY, JSON.stringify(t));
+const clearTokens = () => localStorage.removeItem(TOKEN_KEY);
+
+// ---- PKCE ----
+function b64url(bytes){ let s=''; bytes.forEach(b=>s+=String.fromCharCode(b)); return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+function randomVerifier(){ const a=new Uint8Array(64); crypto.getRandomValues(a); return b64url(a); }
+async function challenge(v){ const d=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v)); return b64url(new Uint8Array(d)); }
+
+async function login(){
+  const verifier = randomVerifier();
+  const state = randomVerifier().slice(0,16);
+  sessionStorage.setItem('spov_verifier', verifier);
+  sessionStorage.setItem('spov_state', state);
+  const url = 'https://accounts.spotify.com/authorize?' + new URLSearchParams({
+    client_id: CLIENT_ID, response_type:'code', redirect_uri: REDIRECT_URI,
+    code_challenge_method:'S256', code_challenge: await challenge(verifier), state, scope: SCOPES,
+  });
+  location.assign(url);
+}
+
+async function handleRedirect(){
+  const p = new URLSearchParams(location.search);
+  const code = p.get('code'), st = p.get('state'), err = p.get('error');
+  if(!code && !err) return;
+  history.replaceState({}, '', REDIRECT_URI); // strip query so refresh won't re-run
+  if(err){ R['connect-msg'].textContent = 'Spotify said: ' + err; return; }
+  if(st !== sessionStorage.getItem('spov_state')){ R['connect-msg'].textContent = 'Session mismatch — try Connect again.'; return; }
+  try {
+    const res = await fetch('https://accounts.spotify.com/api/token', {
+      method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({ grant_type:'authorization_code', code, redirect_uri:REDIRECT_URI, client_id:CLIENT_ID, code_verifier: sessionStorage.getItem('spov_verifier') }),
+    });
+    if(!res.ok) throw new Error('token ' + res.status + ' ' + await res.text());
+    const d = await res.json();
+    setTokens({ access_token:d.access_token, refresh_token:d.refresh_token, expires_at: Date.now() + (d.expires_in-60)*1000 });
+  } catch(e){ R['connect-msg'].textContent = String(e.message||e); }
+}
+
+async function refresh(){
+  const t = getTokens(); if(!t || !t.refresh_token) throw new Error('Not connected');
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({ grant_type:'refresh_token', refresh_token:t.refresh_token, client_id:CLIENT_ID }),
+  });
+  if(!res.ok) throw new Error('refresh ' + res.status);
+  const d = await res.json();
+  setTokens({ access_token:d.access_token, refresh_token:d.refresh_token||t.refresh_token, expires_at: Date.now() + (d.expires_in-60)*1000 });
+}
+async function token(){ let t=getTokens(); if(!t) return null; if(Date.now()>=t.expires_at){ await refresh(); t=getTokens(); } return t.access_token; }
+async function api(path, opts={}){
+  const k = await token(); if(!k) throw new Error('Not connected');
+  const call = key => fetch('https://api.spotify.com/v1'+path, { ...opts, headers:{ Authorization:'Bearer '+key, ...(opts.headers||{}) } });
+  let res = await call(k);
+  if(res.status===401){ await refresh(); res = await call((getTokens()||{}).access_token); }
+  return res;
+}
+
+// ---- history ----
+const loadHistory = () => { try { return JSON.parse(localStorage.getItem(HIST_KEY)) || []; } catch { return []; } };
+const saveHistory = h => localStorage.setItem(HIST_KEY, JSON.stringify(h.slice(-5000)));
+let lastLoggedId = null;
+function logPlay(d){
+  if(!d.trackId || d.trackId===lastLoggedId) return;
+  lastLoggedId = d.trackId;
+  const h = loadHistory();
+  h.push({ t:Date.now(), id:d.trackId, name:d.name, artist:d.artists, durationMs:d.durationMs });
+  saveHistory(h);
+}
+async function backfillRecent(){
+  try {
+    const res = await api('/me/player/recently-played?limit=50');
+    if(!res.ok) return;
+    const data = await res.json();
+    const h = loadHistory();
+    const seen = new Set(h.map(r => r.id + '|' + Math.floor(r.t/60000)));
+    for(const it of (data.items||[])){
+      const tr = it.track; if(!tr) continue;
+      const t = new Date(it.played_at).getTime();
+      const key = tr.id + '|' + Math.floor(t/60000);
+      if(seen.has(key)) continue; seen.add(key);
+      h.push({ t, id:tr.id, name:tr.name, artist:(tr.artists||[]).map(a=>a.name).join(', '), durationMs:tr.duration_ms });
+    }
+    h.sort((a,b)=>a.t-b.t);
+    saveHistory(h);
+  } catch(e){ /* ignore */ }
+}
+
+// ---- now playing ----
+async function poll(){
+  if(!getTokens()) return;
+  try {
+    const res = await api('/me/player/currently-playing');
+    if(res.status===204 || res.status===202){ np={playing:false}; baseline=null; renderIdle(); return; }
+    if(!res.ok){ np={playing:false}; baseline=null; renderIdle('Spotify '+res.status); return; }
+    const data = await res.json();
+    if(!data || !data.item){ np={playing:false}; baseline=null; renderIdle(); return; }
+    const it = data.item, img = it.album && it.album.images && it.album.images[0];
+    np = { playing:true, isPlaying:data.is_playing, trackId:it.id, name:it.name,
+      artists:(it.artists||[]).map(a=>a.name).join(', '), image: img?img.url:null,
+      durationMs:it.duration_ms, progressMs:data.progress_ms, url: it.external_urls?it.external_urls.spotify:null };
+    baseline = { progressMs:np.progressMs, fetchedAt:Date.now(), isPlaying:np.isPlaying, durationMs:np.durationMs };
+    logPlay(np);
+    renderNP();
+    if(view==='connect') show('np');
+  } catch(e){ renderIdle(String(e.message||e)); }
+}
+function renderNP(){
+  if(!np||!np.playing) return;
+  R.title.textContent = np.name||'';
+  R.artist.textContent = np.artists||'';
+  R.art.style.backgroundImage = np.image ? `url("${np.image}")` : 'none';
+  R['play-toggle'].innerHTML = (baseline && baseline.isPlaying) ? '&#10073;&#10073;' : '&#9654;';
+  R.dur.textContent = fmt(np.durationMs);
+}
+function renderIdle(err){
+  R.title.textContent = err ? 'Spotify unavailable' : 'Nothing playing';
+  R.artist.textContent = err ? String(err) : 'Press play in Spotify';
+  R.art.style.backgroundImage = 'none';
+  R.fill.style.width = '0%'; R.cur.textContent='0:00'; R.dur.textContent='0:00';
+  R['play-toggle'].innerHTML = '&#9654;';
+  if(view==='connect') show('np');
+}
+setInterval(() => {
+  if(!baseline || !np || !np.playing) return;
+  let p = baseline.progressMs + (baseline.isPlaying ? Date.now()-baseline.fetchedAt : 0);
+  p = Math.min(p, baseline.durationMs||p);
+  R.fill.style.width = (baseline.durationMs ? p/baseline.durationMs*100 : 0) + '%';
+  R.cur.textContent = fmt(p);
+}, 250);
+
+// ---- controls ----
+async function control(action){
+  const m = { play:['/me/player/play','PUT'], pause:['/me/player/pause','PUT'], next:['/me/player/next','POST'], previous:['/me/player/previous','POST'] }[action];
+  try {
+    const res = await api(m[0], { method:m[1] });
+    setTimeout(poll, 400);
+    if(!res.ok && res.status!==204){
+      if(res.status===404) toast('No active device — start playback once in Spotify.');
+      else if(res.status===403) toast('Controls need Spotify Premium.');
+      else toast('Spotify ' + res.status);
+    }
+  } catch(e){ toast(String(e.message||e)); }
+}
+
+// ---- stats ----
+function barRow(label,count,frac){
+  return `<div class="brow"><div class="brow-fill" style="width:${Math.round(frac*100)}%"></div>`
+    + `<span class="brow-label">${esc(label)}</span><span class="brow-count">${count}</span></div>`;
+}
+function renderStats(){
+  const hist = loadHistory();
+  const byArtist=new Map(), byTrack=new Map(), byDay=new Map(); let ms=0;
+  for(const r of hist){
+    ms += r.durationMs||0;
+    byArtist.set(r.artist,(byArtist.get(r.artist)||0)+1);
+    const k = r.id || (r.name+'|'+r.artist);
+    if(!byTrack.has(k)) byTrack.set(k,{name:r.name,artist:r.artist,count:0});
+    byTrack.get(k).count++;
+    const day = new Date(r.t).toISOString().slice(0,10);
+    byDay.set(day,(byDay.get(day)||0)+1);
+  }
+  R['stat-plays'].textContent = hist.length;
+  R['stat-tracks'].textContent = byTrack.size;
+  R['stat-artists'].textContent = byArtist.size;
+  R['stat-mins'].textContent = Math.round(ms/60000);
+  const days=[]; for(let i=13;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); const key=d.toISOString().slice(0,10); days.push({day:key,count:byDay.get(key)||0}); }
+  const maxD = Math.max(1,...days.map(d=>d.count));
+  R.days.innerHTML = days.map(d=>`<div class="day" title="${d.day}: ${d.count}"><div class="day-bar" style="height:${Math.round(d.count/maxD*100)}%"></div><span>${d.day.slice(8)}</span></div>`).join('');
+  const empty = '<div class="muted">No plays logged yet — listen for a bit.</div>';
+  const topA = [...byArtist.entries()].map(([name,count])=>({name,count})).sort((a,b)=>b.count-a.count).slice(0,8);
+  const topT = [...byTrack.values()].sort((a,b)=>b.count-a.count).slice(0,8);
+  const maxA = Math.max(1,...topA.map(a=>a.count)), maxT = Math.max(1,...topT.map(t=>t.count));
+  R['top-artists'].innerHTML = topA.map(a=>barRow(a.name,a.count,a.count/maxA)).join('') || empty;
+  R['top-tracks'].innerHTML = topT.map(t=>barRow(t.name+' · '+t.artist,t.count,t.count/maxT)).join('') || empty;
+}
+
+// ---- pop-out (always on top) via Document Picture-in-Picture ----
+async function popOut(){
+  if(!('documentPictureInPicture' in window)){ toast('Pop-out needs Chrome or Edge.'); return; }
+  try {
+    const pip = await documentPictureInPicture.requestWindow({ width:344, height:176 });
+    document.querySelectorAll('style').forEach(s => pip.document.head.appendChild(s.cloneNode(true)));
+    pip.document.body.className = 'pip';
+    pip.document.body.appendChild(R.card);
+    pip.addEventListener('pagehide', () => document.body.appendChild(R.card));
+  } catch(e){ toast('Could not pop out: ' + (e.message||e)); }
+}
+
+// ---- wiring ----
+R['connect-btn'].onclick = login;
+R['play-toggle'].onclick = () => control((baseline && baseline.isPlaying) ? 'pause' : 'play');
+R.next.onclick = () => control('next');
+R.prev.onclick = () => control('previous');
+R.art.onclick = () => { if(np && np.url) window.open(np.url, '_blank'); };
+R.popout.onclick = popOut;
+R['to-stats'].onclick = () => { if(view==='stats'){ show('np'); } else { renderStats(); show('stats'); } };
+R['stats-back'].onclick = () => show('np');
+R.gear.onclick = () => show('account');
+R['account-back'].onclick = () => show(getTokens() ? 'np' : 'connect');
+R.logout.onclick = () => { clearTokens(); lastLoggedId=null; show('connect'); };
+
+// ---- boot ----
+R.redirect.textContent = REDIRECT_URI;
+(async () => {
+  await handleRedirect();
+  if(getTokens()){
+    show('np');
+    await poll();
+    backfillRecent();
+    setInterval(poll, 3000);
+  } else {
+    show('connect');
+  }
+})();
+</script>
+</body>
+</html>

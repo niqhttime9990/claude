@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; img-src https: data:; style-src 'unsafe-inline'; script-src 'self';" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>Spotify Overlay</title>
+</head>
+<body>
+  <div class="card">
+    <header class="bar">
+      <span class="drag grip">Spotify</span>
+      <div class="bar-btns">
+        <button id="to-stats" class="ic" title="Stats">&#9646;&#9646;&#9646;</button>
+        <button id="gear" class="ic" title="Account">&#9881;</button>
+        <button id="min" class="ic" title="Hide">&#8211;</button>
+        <button id="close" class="ic" title="Quit">&#10005;</button>
+      </div>
+    </header>
+
+    <!-- NOW PLAYING -->
+    <section class="view active" data-view="np">
+      <div class="np">
+        <div id="np-art" class="art" title="Open in Spotify"></div>
+        <div class="np-info">
+          <div id="np-title" class="title">Loading&#8230;</div>
+          <div id="np-artist" class="artist"></div>
+          <div class="progress">
+            <div id="np-progress-fill" class="progress-fill"></div>
+          </div>
+          <div class="times">
+            <span id="np-cur">0:00</span>
+            <div class="controls">
+              <button id="prev" class="ctl" title="Previous">&#9198;</button>
+              <button id="play-toggle" class="ctl big" title="Play / Pause">&#9654;</button>
+              <button id="next" class="ctl" title="Next">&#9197;</button>
+            </div>
+            <span id="np-dur">0:00</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETUP: enter client id -->
+    <section class="view" data-view="setup">
+      <div class="pane">
+        <p class="lead">Connect your Spotify app</p>
+        <ol class="steps">
+          <li>Open the <a id="open-dash" class="link">Developer Dashboard</a>, create an app.</li>
+          <li>Add this <b>Redirect URI</b>:</li>
+        </ol>
+        <code id="redirect" class="redirect"></code>
+        <input id="client-id" class="input" placeholder="Paste your Client ID here" />
+        <button id="save-id" class="primary">Save &amp; connect</button>
+      </div>
+    </section>
+
+    <!-- CONNECT / account -->
+    <section class="view" data-view="connect">
+      <div class="pane">
+        <p id="connect-msg" class="lead">Ready to connect.</p>
+        <p class="hint">First time? Make sure <code id="redirect2">http://127.0.0.1:8888/callback</code> is listed under <b>Redirect URIs</b> in your Spotify app settings, or login will fail.</p>
+        <button id="connect-btn" class="primary">Connect Spotify</button>
+        <div class="row-links">
+          <a id="to-setup" class="link">Change Client ID</a>
+          <a id="logout" class="link">Disconnect</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- STATS -->
+    <section class="view" data-view="stats">
+      <div class="pane stats">
+        <div class="kpis">
+          <div class="kpi"><b id="stat-plays">0</b><span>plays</span></div>
+          <div class="kpi"><b id="stat-tracks">0</b><span>tracks</span></div>
+          <div class="kpi"><b id="stat-artists">0</b><span>artists</span></div>
+          <div class="kpi"><b id="stat-mins">0</b><span>minutes</span></div>
+        </div>
+        <h4>Last 14 days</h4>
+        <div id="days" class="days"></div>
+        <h4>Top artists</h4>
+        <div id="top-artists" class="bars"></div>
+        <h4>Top tracks</h4>
+        <div id="top-tracks" class="bars"></div>
+        <button id="stats-back" class="ghost">&#8592; Back</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>
