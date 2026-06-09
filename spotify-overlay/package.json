@@ -1,0 +1,14 @@
+{
+  "name": "spotify-overlay",
+  "version": "1.0.0",
+  "description": "An always-on-top Spotify now-playing overlay with listening history & stats.",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^30.0.0"
+  }
+}
