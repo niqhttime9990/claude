@@ -153,19 +153,30 @@ def resolution_label(outcome_prices: list) -> float | None:
 
 
 def normalize_market(m: dict, source: str) -> dict | None:
-    outcomes = [str(o).strip().lower() for o in parse_json_field(m.get("outcomes"))]
-    if outcomes != ["yes", "no"]:
+    """Any two-outcome market qualifies (Yes/No, team-vs-team, Up/Down...).
+    `outcome` refers to outcomes[0]; its token is stored as yes_token."""
+    outcomes = [str(o).strip() for o in parse_json_field(m.get("outcomes"))]
+    if len(outcomes) != 2:
         return None
     tokens = parse_json_field(m.get("clobTokenIds"))
     prices = parse_json_field(m.get("outcomePrices"))
     events = m.get("events") or []
     ev = events[0] if events else {}
+    tags = []
+    for t in (ev.get("tags") or m.get("tags") or []):
+        label = t.get("label") if isinstance(t, dict) else None
+        if label:
+            tags.append(str(label))
+    category = m.get("category") or (tags[0] if tags else None)
     return {
         "market_id": str(m.get("id")),
         "condition_id": m.get("conditionId"),
         "question": m.get("question"),
         "slug": m.get("slug"),
-        "category": m.get("category"),
+        "category": category,
+        "tags": ",".join(tags[:6]),
+        "outcome0": outcomes[0],
+        "outcome1": outcomes[1],
         "event_id": str(ev.get("id")) if ev.get("id") is not None else None,
         "event_slug": ev.get("slug"),
         "event_title": ev.get("title"),
@@ -191,6 +202,60 @@ def normalize_market(m: dict, source: str) -> dict | None:
     }
 
 
+MAX_OFFSET = 9_500  # Gamma 422s past offset 10000; windows keep us under it
+
+
+async def _scan_window(
+    client: httpx.AsyncClient,
+    pacer: Pacer,
+    out: dict[str, dict],
+    vol_min: float,
+    lo: str,
+    hi: str,
+    depth: int = 0,
+) -> None:
+    """Scan one end_date window, volume-descending. If the window saturates
+    the offset cap, split it in half (Gamma rejects offset > 10000)."""
+    offset = 0
+    page_size = 500
+    while True:
+        params = {
+            "closed": "true", "limit": page_size, "offset": offset,
+            "order": "volumeNum", "ascending": "false",
+            "end_date_min": lo, "end_date_max": hi,
+        }
+        page = await get_json(client, pacer, f"{GAMMA}/markets", params)
+        if isinstance(page, dict) and page.get("__http_400__"):
+            STATS.note_error("gamma/markets", f"400 in window {lo}..{hi}: {page.get('body')}")
+            return
+        if not isinstance(page, list):
+            return
+        vols = []
+        for m in page:
+            row = normalize_market(m, "volume_scan")
+            if row is None:
+                continue
+            vols.append(row["volume"])
+            if row["volume"] >= vol_min:
+                out[row["market_id"]] = row
+        if len(page) < page_size:
+            return
+        # volume-desc ordering: once a whole page is below threshold, stop
+        if vols and max(vols) < vol_min:
+            return
+        offset += page_size
+        if offset > MAX_OFFSET:
+            if depth >= 4:
+                STATS.note_error("gamma/markets", f"window {lo}..{hi} still saturated at depth {depth}")
+                return
+            mid = pd.Timestamp(lo) + (pd.Timestamp(hi) - pd.Timestamp(lo)) / 2
+            mid_s = mid.isoformat()
+            print(f"[gamma] window {lo}..{hi} saturated; splitting at {mid_s}")
+            await _scan_window(client, pacer, out, vol_min, lo, mid_s, depth + 1)
+            await _scan_window(client, pacer, out, vol_min, mid_s, hi, depth + 1)
+            return
+
+
 async def fetch_closed_markets(
     client: httpx.AsyncClient,
     pacer: Pacer,
@@ -198,59 +263,22 @@ async def fetch_closed_markets(
     end_date_min: str,
     max_markets: int,
 ) -> list[dict]:
+    """Monthly end_date windows from end_date_min through ~18 months ahead
+    (early-resolved markets keep far-future end dates)."""
     out: dict[str, dict] = {}
-    offset = 0
-    page_size = 500
-    use_end_date_filter = True
-    ordered = True
-    consecutive_below = 0
-    while offset < 120_000:
-        params = {
-            "closed": "true",
-            "limit": page_size,
-            "offset": offset,
-            "order": "volumeNum",
-            "ascending": "false",
-        }
-        if use_end_date_filter:
-            params["end_date_min"] = end_date_min
-        page = await get_json(client, pacer, f"{GAMMA}/markets", params)
-        if isinstance(page, dict) and page.get("__http_400__"):
-            if use_end_date_filter:
-                print("[gamma] end_date_min rejected; falling back to client-side filter")
-                use_end_date_filter = False
-                continue
-            STATS.note_error("gamma/markets", f"400: {page.get('body')}")
-            break
-        if not isinstance(page, list) or not page:
-            break
-        vols = []
-        for m in page:
-            row = normalize_market(m, "volume_scan")
-            if row is None:
-                continue
-            vols.append(row["volume"])
-            if not use_end_date_filter and (row["end_date"] or "") < end_date_min:
-                continue
-            if row["volume"] >= vol_min:
-                out[row["market_id"]] = row
-        # Detect whether server-side ordering actually happened.
-        if offset == 0 and vols and vols[0] < vols[-1]:
-            ordered = False
-            print("[gamma] WARNING: volume ordering not respected; will scan all pages")
-        if ordered and vols and max(vols) < vol_min:
-            consecutive_below += 1
-            if consecutive_below >= 3:  # tolerate stray pages out of order
-                break
-        else:
-            consecutive_below = 0
-        offset += page_size
+    start = pd.Timestamp(end_date_min.replace("Z", ""))
+    horizon = pd.Timestamp.now("UTC").tz_localize(None) + pd.Timedelta(days=550)
+    edges = pd.date_range(start, horizon, freq="MS")
+    for lo, hi in zip(edges, edges[1:]):
+        before = len(out)
+        await _scan_window(client, pacer, out, vol_min,
+                           lo.isoformat(), hi.isoformat())
+        print(f"[gamma] window {lo:%Y-%m}: +{len(out) - before} (total {len(out)})")
         if len(out) >= max_markets:
+            print("[gamma] hit max_markets cap")
             break
-        if offset % 5000 == 0:
-            print(f"[gamma] offset={offset} kept={len(out)}")
     rows = sorted(out.values(), key=lambda r: -r["volume"])[:max_markets]
-    print(f"[gamma] closed binary markets kept: {len(rows)}")
+    print(f"[gamma] closed two-outcome markets kept: {len(rows)}")
     return rows
 
 
@@ -391,7 +419,7 @@ async def fetch_active_snapshot(
     client: httpx.AsyncClient, pacer: Pacer, top_n: int
 ) -> tuple[list[dict], list[dict]]:
     markets: list[dict] = []
-    for offset in range(0, top_n, 500):
+    for offset in range(0, max(2500, top_n * 5), 500):
         page = await get_json(
             client, pacer, f"{GAMMA}/markets",
             {"active": "true", "closed": "false", "limit": 500, "offset": offset,
@@ -403,7 +431,9 @@ async def fetch_active_snapshot(
             row = normalize_market(m, "active_snapshot")
             if row and row["yes_token"]:
                 markets.append(row)
-    markets = markets[:top_n]
+        if len(markets) >= top_n:
+            break
+    markets = sorted(markets, key=lambda r: -r["volume_24h"])[:top_n]
     print(f"[active] snapshot of {len(markets)} active markets; fetching books")
 
     books: list[dict] = []
@@ -455,16 +485,16 @@ async def main() -> int:
     ap.add_argument("--out", default="data_out")
     ap.add_argument("--vol-min", type=float, default=2000.0)
     ap.add_argument("--end-date-min", default="2024-01-01T00:00:00Z")
-    ap.add_argument("--max-markets", type=int, default=40000)
+    ap.add_argument("--max-markets", type=int, default=60000)
     ap.add_argument("--hourly-top", type=int, default=4000)
-    ap.add_argument("--active-top", type=int, default=400)
+    ap.add_argument("--active-top", type=int, default=500)
     ap.add_argument("--rps", type=float, default=18.0)
     args = ap.parse_args()
 
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
     manifest: dict[str, Any] = {
-        "started_utc": pd.Timestamp.utcnow().isoformat(),
+        "started_utc": pd.Timestamp.now("UTC").isoformat(),
         "params": vars(args),
         "status": "running",
     }
@@ -525,7 +555,7 @@ async def main() -> int:
             manifest["fatal"] = traceback.format_exc()[-2000:]
             print("[FATAL]", manifest["fatal"], file=sys.stderr)
 
-    manifest["finished_utc"] = pd.Timestamp.utcnow().isoformat()
+    manifest["finished_utc"] = pd.Timestamp.now("UTC").isoformat()
     manifest["http"] = {
         "requests": STATS.requests,
         "retries": STATS.retries,
