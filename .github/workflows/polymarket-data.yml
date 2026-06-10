@@ -1,0 +1,57 @@
+name: polymarket-data
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["claude/brave-mendel-mvive7"]
+    paths:
+      - ".github/workflows/polymarket-data.yml"
+      - "polymarket-edge/pipeline/**"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: polymarket-data
+  cancel-in-progress: true
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: pip install --quiet httpx pandas pyarrow numpy
+
+      - name: Fetch Polymarket data
+        run: |
+          python polymarket-edge/pipeline/fetch_data.py --out "$RUNNER_TEMP/data_out"
+          ls -la "$RUNNER_TEMP/data_out"
+          du -sh "$RUNNER_TEMP/data_out"
+
+      - name: Print manifest
+        if: always()
+        run: cat "$RUNNER_TEMP/data_out/MANIFEST.json" || true
+
+      - name: Push data branch
+        if: always()
+        run: |
+          set -e
+          cd "$RUNNER_TEMP/data_out"
+          if [ ! -f MANIFEST.json ]; then echo "no data produced"; exit 0; fi
+          git init -b claude/brave-mendel-mvive7-data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Polymarket data snapshot $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push --force \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            HEAD:refs/heads/claude/brave-mendel-mvive7-data
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
