@@ -1,0 +1,56 @@
+{
+  "started_utc": "2026-06-10T18:24:38.184011+00:00",
+  "params": {
+    "out": "/home/runner/work/_temp/data_out",
+    "vol_min": 2000.0,
+    "end_date_min": "2024-01-01T00:00:00Z",
+    "max_markets": 80000,
+    "hourly_top": 4000,
+    "active_top": 500,
+    "rps": 25.0
+  },
+  "status": "ok",
+  "markets": {
+    "rows": 89751,
+    "resolved_yes": 33719,
+    "resolved_no": 55871,
+    "ties": 160,
+    "unparseable_outcome": 1,
+    "missing_tokens": 0,
+    "total_volume_usd": 63998763258.577995
+  },
+  "skipped_short_lived": 17456,
+  "hist_12h": {
+    "fetched": 72295,
+    "empty": 5390,
+    "shards": 2
+  },
+  "hist_1h": {
+    "skipped": "fidelity=60 empty for resolved markets"
+  },
+  "active": {
+    "markets": 500,
+    "books": 498
+  },
+  "finished_utc": "2026-06-10T20:24:26.545024+00:00",
+  "http": {
+    "requests": 87022,
+    "retries": 18,
+    "failures": 3,
+    "rate_limited_429": 0,
+    "sample_errors": [
+      {
+        "where": "https://gamma-api.polymarket.com/markets",
+        "error": "JSONDecodeError('Unterminated string starting at: line 1 column 241610 (char 241609)')"
+      },
+      {
+        "where": "https://clob.polymarket.com/book",
+        "error": "HTTPStatusError(\"Client error '404 Not Found' for url 'https://clob.polymarket.com/book?token_id=15043952670867657834036774655360820723421480067034342793656925207071123619880'\\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404\")"
+      },
+      {
+        "where": "https://clob.polymarket.com/book",
+        "error": "HTTPStatusError(\"Client error '404 Not Found' for url 'https://clob.polymarket.com/book?token_id=45382276727921931243033385533941536064271670234546407689998360144229854366433'\\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404\")"
+      }
+    ]
+  }
+}
