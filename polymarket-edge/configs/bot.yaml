@@ -1,0 +1,17 @@
+# Reference bot configuration (the CLI uses flags; this documents defaults)
+params_file: reports/params.json
+state_dir: state
+stake_usd: 25.0
+poll_seconds: 120
+
+risk:
+  max_order_usd: 50
+  max_market_usd: 100
+  max_event_usd: 200
+  max_gross_usd: 1000
+  max_orders_per_day: 200
+  price_min: 0.02
+  price_max: 0.985
+  max_spread: 0.05
+  min_edge: 0.01
+  drawdown_kill_frac: 0.15

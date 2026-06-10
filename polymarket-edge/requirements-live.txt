@@ -1,0 +1,2 @@
+# Only needed to place real orders (polyedge.cli live)
+py-clob-client>=0.34
