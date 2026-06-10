@@ -290,9 +290,9 @@ async def fetch_closed_markets(
         before = len(out)
         await _scan_window(client, pacer, out, vol_min, iso_z(lo), iso_z(hi))
         print(f"[gamma] window {lo:%Y-%m}: +{len(out) - before} (total {len(out)})")
-        if len(out) >= max_markets:
-            print("[gamma] hit max_markets cap")
-            break
+    # cut to the volume top-N only AFTER scanning every window — breaking
+    # early silently drops the most recent months (it cost run 5 its
+    # entire out-of-sample period)
     rows = sorted(out.values(), key=lambda r: -r["volume"])[:max_markets]
     print(f"[gamma] closed two-outcome markets kept: {len(rows)}")
     return rows
@@ -501,7 +501,7 @@ async def main() -> int:
     ap.add_argument("--out", default="data_out")
     ap.add_argument("--vol-min", type=float, default=2000.0)
     ap.add_argument("--end-date-min", default="2024-01-01T00:00:00Z")
-    ap.add_argument("--max-markets", type=int, default=60000)
+    ap.add_argument("--max-markets", type=int, default=80000)
     ap.add_argument("--hourly-top", type=int, default=4000)
     ap.add_argument("--active-top", type=int, default=500)
     ap.add_argument("--rps", type=float, default=25.0)
