@@ -3,9 +3,14 @@ bar t uses only prices with timestamp <= t plus static metadata that was
 known before the market started (end_date, volume filters use lifetime
 volume as a liquidity proxy — see report caveats).
 
-Execution model: marketable limit at the observed mid plus a haircut
-(empirical half-spread by liquidity tier). Buying NO is priced as
-(1 - yes_mid) + haircut, valid because CLOB YES/NO books are complements.
+Execution model: by default a trade decided at bar i fills at the WORSE of
+bar i and bar i+1 prices for the bought side, plus a haircut (empirical
+half-spread by liquidity tier). The signal bar alone is not executable
+information — the 12h series is built from prints, and chasing a stale
+print is the dominant backtest illusion here (same-bar mean-reversion
+"profits" collapse ~75% under next-bar entry). entry_bar="same" remains
+available to quantify that gap. Buying NO is priced as (1 - yes_p) +
+haircut, valid because CLOB YES/NO books are complements.
 """
 
 from __future__ import annotations
@@ -27,6 +32,32 @@ def _prep(markets: pd.DataFrame) -> pd.DataFrame:
     m["end_t"] = m["end_date"].apply(lambda x: x.timestamp() if pd.notna(x) else np.nan)
     m["closed_t"] = m["closed_time"].apply(lambda x: x.timestamp() if pd.notna(x) else np.nan)
     return m.dropna(subset=["end_t"])
+
+
+def _execution(
+    entry_bar: str,
+    buy_yes: bool,
+    i: int,
+    t_arr: np.ndarray,
+    p_arr: np.ndarray,
+    hard_stop: float,
+    h: float,
+) -> tuple[float, float, int] | None:
+    """Fill price/time for a decision at bar i. Returns (fill, entry_t, entry_i)
+    or None if the trade cannot be executed honestly."""
+    p_sig = p_arr[i]
+    if entry_bar == "same":
+        p_exec, t_exec, i_exec = p_sig, t_arr[i], i
+    else:  # "next_worse": worse of signal and next bar, entered at next bar
+        if i + 1 >= len(t_arr):
+            return None
+        t1, p1 = t_arr[i + 1], p_arr[i + 1]
+        if t1 >= hard_stop or not (0.005 < p1 < 0.995):
+            return None
+        p_exec = max(p_sig, p1) if buy_yes else min(p_sig, p1)
+        t_exec, i_exec = t1, i + 1
+    fill = (p_exec if buy_yes else 1.0 - p_exec) + h
+    return min(fill, 0.999), float(t_exec), i_exec
 
 
 def _attach_exits(
@@ -52,8 +83,9 @@ def favorite_trades(
     side_mode: str = "both",  # "yes" buy high-priced favorites, "no" fade longshots, "both"
     min_volume: float = 10_000.0,
     haircut_mult: float = 1.0,
+    entry_bar: str = "next_worse",
 ) -> pd.DataFrame:
-    """Enter at the first bar inside the final `window_days` before end_date
+    """Enter on the first bar inside the final `window_days` before end_date
     where the favorite condition holds; hold to resolution."""
     m = _prep(markets)
     m = m[m["volume"] >= min_volume]
@@ -73,26 +105,30 @@ def favorite_trades(
         lo_t = end_t - window_days * 86400
         hard_stop = min(end_t, closed_t) if np.isfinite(closed_t) else end_t
         first_t = t_arr[0]
-        for t, p in zip(t_arr, p_arr):
+        for i in range(len(t_arr)):
+            t, p = t_arr[i], p_arr[i]
             if t < lo_t or t >= hard_stop:
                 continue
             if t - first_t < 86400:  # market must have a day of trading behind it
                 continue
             if not (0.005 < p < 0.995):
                 continue
-            side = None
             if p >= theta and side_mode in ("yes", "both"):
-                side, fill, exit_mult = "YES", min(p + h, 0.999), 1.0
+                side, buy_yes = "YES", True
             elif p <= 1 - theta and side_mode in ("no", "both"):
-                side, fill, exit_mult = "NO", min((1 - p) + h, 0.999), -1.0
-            if side is None:
+                side, buy_yes = "NO", False
+            else:
                 continue
+            ex = _execution(entry_bar, buy_yes, i, t_arr, p_arr, hard_stop, h)
+            if ex is None:
+                continue
+            fill, entry_t, _ = ex
             outcome = row["outcome"]
             exit_val = outcome if side == "YES" else 1.0 - outcome
             trades.append({
                 "market_id": mid, "event_id": row["event_id"],
                 "category": row["category"], "side": side,
-                "signal_t": float(t), "fill": float(fill),
+                "signal_t": entry_t, "fill": float(fill),
                 "exit_val": float(exit_val),
                 "ret": float(exit_val / fill - 1.0),
                 "volume": float(row["volume"]),
@@ -114,9 +150,13 @@ def momentum_trades(
     min_volume: float = 10_000.0,
     haircut_mult: float = 1.0,
     min_tte_h: float = 24.0,
+    entry_bar: str = "next_worse",
+    min_age_h: float = 48.0,
+    min_prior_bars: int = 4,
 ) -> pd.DataFrame:
     """After a move of at least `delta` over `lookback_h`, enter in (or
-    against) the move's direction at the signal bar. One trade per market."""
+    against) the move's direction. One trade per market. Age guards exclude
+    the listing period, where placeholder quotes fabricate 'moves'."""
     m = _prep(markets)
     m = m[m["volume"] >= min_volume]
     settle_map = settle.set_index("market_id")["settle_t"].to_dict()
@@ -135,12 +175,15 @@ def momentum_trades(
         end_t, closed_t = row["end_t"], row["closed_t"]
         hard_stop = min(end_t, closed_t) if np.isfinite(closed_t) else end_t
         n = len(t_arr)
+        first_t = t_arr[0]
         j = 0
         for i in range(n):
             t, p = t_arr[i], p_arr[i]
             if t >= hard_stop or (end_t - t) < min_tte_h * 3600:
                 continue
             if not (band[0] <= p <= band[1]):
+                continue
+            if t - first_t < min_age_h * 3600 or i < min_prior_bars:
                 continue
             # latest bar at least `lookback` old but no older than lookback+24h
             while j < n and t_arr[j] <= t - lb_s:
@@ -153,31 +196,33 @@ def momentum_trades(
                 continue
             up = move > 0
             buy_yes = up if direction == "with" else not up
+            ex = _execution(entry_bar, buy_yes, i, t_arr, p_arr, hard_stop, h)
+            if ex is None:
+                continue
+            fill, entry_t, entry_i = ex
+            side = "YES" if buy_yes else "NO"
             outcome = row["outcome"]
-            if buy_yes:
-                side, fill = "YES", min(p + h, 0.999)
-            else:
-                side, fill = "NO", min((1 - p) + h, 0.999)
             # exit: resolution, or first bar >= hold horizon (whichever first)
             exit_val, exit_t = None, None
             if hold_days is not None:
-                tgt = t + hold_days * 86400
+                tgt = entry_t + hold_days * 86400
                 later = np.flatnonzero((t_arr >= tgt) & (t_arr < hard_stop))
+                later = later[later > entry_i] if len(later) else later
                 if len(later):
                     ep = p_arr[later[0]]
                     exit_p = max(ep - h, 0.001) if side == "YES" else max((1 - ep) - h, 0.001)
                     exit_val, exit_t = exit_p, float(t_arr[later[0]])
             if exit_val is None:
                 exit_val = outcome if side == "YES" else 1.0 - outcome
-                exit_t = settle_map.get(mid, end_map.get(mid, t + 86400))
+                exit_t = settle_map.get(mid, end_map.get(mid, entry_t + 86400))
             trades.append({
                 "market_id": mid, "event_id": row["event_id"],
                 "category": row["category"], "side": side,
-                "signal_t": float(t), "fill": float(fill),
+                "signal_t": entry_t, "fill": float(fill),
                 "exit_val": float(exit_val),
                 "ret": float(exit_val / fill - 1.0),
                 "volume": float(row["volume"]),
-                "exit_t": float(max(exit_t, t + 60.0)),
+                "exit_t": float(max(exit_t, entry_t + 60.0)),
             })
             break
     if not trades:

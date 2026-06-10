@@ -1,0 +1,20 @@
+{
+  "generated_utc": "2026-06-10T18:30:48.111861+00:00",
+  "train_cutoff": "2025-06-01",
+  "data_through": "2026-01-05 00:00:25",
+  "favorite": {
+    "enabled": false,
+    "why": "no cell with OOS CI low > 0 and n>=100"
+  },
+  "momentum_note": {
+    "oos_validated_cell": "mom \u03b4=0.15 against hold=res",
+    "oos_mean_ret": 0.12788889647766477,
+    "note": "12h-fidelity signal; live impl needs finer data \u2014 not armed"
+  },
+  "negrisk": {
+    "enabled": true,
+    "min_edge_per_set": 0.02,
+    "max_members": 25,
+    "rationale": "structural; deterministic payout if basket fills"
+  }
+}

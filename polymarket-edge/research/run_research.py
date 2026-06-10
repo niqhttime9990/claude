@@ -246,12 +246,30 @@ def main() -> int:
                               + pd.DataFrame(rows).to_markdown(index=False) + "\n")
 
     # --------------------------------------------- momentum strategy WF
-    report.append("\n## 3. Momentum / underreaction — walk-forward\n")
+    report.append("\n## 3. Momentum / mean reversion — walk-forward\n")
     report.append(
-        "Rule: |Δp| >= δ over 24h, price in [0.10, 0.90], enter at signal "
-        "bar with the move ('with') or against it ('against'); hold to "
-        "resolution or time-exit. One trade per market.\n"
+        "Rule: |Δp| >= δ over 24h, price in [0.10, 0.90], market at least "
+        "48h old with 4 prior bars, enter with the move ('with') or against "
+        "it ('against'); hold to resolution or time-exit. One trade per "
+        "market. Fills use the worse of the signal and next bar plus the "
+        "haircut (`entry_bar='next_worse'`).\n"
     )
+    # quantify the stale-print illusion on a fixed reference cell
+    art_same = dedupe_per_event(momentum_trades(
+        series, markets, settle, spread, delta=0.15, direction="against",
+        entry_bar="same"))
+    art_next = dedupe_per_event(momentum_trades(
+        series, markets, settle, spread, delta=0.15, direction="against"))
+    if not art_same.empty and not art_next.empty:
+        report.append(
+            f"\n**Execution-artifact check** (δ=0.15 against, hold to "
+            f"resolution, full sample): same-bar entry shows "
+            f"{art_same['ret'].mean()*100:.1f}%/trade (n={len(art_same):,}) "
+            f"but worse-of-next-bar entry — the executable version — shows "
+            f"{art_next['ret'].mean()*100:.1f}%/trade (n={len(art_next):,}). "
+            "The gap is unfillable stale-print 'profit'; every number below "
+            "uses the executable model.\n"
+        )
     mom_cells: dict[str, pd.DataFrame] = {}
     for delta in (0.05, 0.10, 0.15):
         for direction in ("with", "against"):

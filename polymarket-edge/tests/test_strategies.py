@@ -19,7 +19,7 @@ def test_favorite_trades_basic(simple_universe, flat_spread):
     settle = build_settlement_table(markets, prices)
     trades = favorite_trades(prices, markets, settle, flat_spread,
                              theta=0.93, window_days=7, side_mode="both",
-                             min_volume=0)
+                             min_volume=0, entry_bar="same")
     assert set(trades["market_id"]) == {"m1", "m2"}
     t1 = trades[trades["market_id"] == "m1"].iloc[0]
     assert t1["side"] == "YES"
@@ -43,7 +43,7 @@ def test_favorite_no_entry_after_closed_time(flat_spread):
     settle = build_settlement_table(markets, prices)
     trades = favorite_trades(prices, markets, settle, flat_spread,
                              theta=0.85, window_days=7, side_mode="both",
-                             min_volume=0)
+                             min_volume=0, entry_bar="same")
     if not trades.empty:
         assert (trades["signal_t"] < T0 + 5 * DAY).all()
 
@@ -87,7 +87,7 @@ def test_momentum_direction_and_exit(flat_spread):
     prices = path_market("m", pts)
     settle = build_settlement_table(markets, prices)
     t = momentum_trades(prices, markets, settle, flat_spread, delta=0.15,
-                        direction="with", min_volume=0)
+                        direction="with", min_volume=0, entry_bar="same")
     assert len(t) == 1
     row = t.iloc[0]
     assert row["side"] == "YES"
@@ -95,11 +95,12 @@ def test_momentum_direction_and_exit(flat_spread):
     assert row["ret"] == pytest.approx(1 / 0.51 - 1)
     # time exit at 3d: first bar >= day 8 is day 9 (p=0.95), sell at -h
     t3 = momentum_trades(prices, markets, settle, flat_spread, delta=0.15,
-                         direction="with", hold_days=3.0, min_volume=0)
+                         direction="with", hold_days=3.0, min_volume=0,
+                         entry_bar="same")
     row3 = t3.iloc[0]
     assert row3["exit_val"] == pytest.approx(0.94)
     against = momentum_trades(prices, markets, settle, flat_spread, delta=0.15,
-                              direction="against", min_volume=0)
+                              direction="against", min_volume=0, entry_bar="same")
     assert against.iloc[0]["side"] == "NO"
 
 
@@ -154,3 +155,25 @@ def test_evaluate_math():
     assert ev["n_trades"] == 4
     assert ev["mean_ret"] == pytest.approx(np.mean([0.05, 0.05, -0.02, 0.04]))
     assert ev["hit_rate"] == 0.75
+
+
+
+def test_next_worse_entry_uses_worse_price():
+    # YES buy decided at day 5 (p=0.50); next bar day 6 has p=0.60 ->
+    # worse-of fill = 0.60 + 0.01, entered at day 6
+    pts = [(0, 0.30), (1, 0.30), (2, 0.30), (3, 0.30), (4, 0.30),
+           (5, 0.50), (6, 0.60), (7, 0.70), (9, 0.95), (10, 1.0)]
+    markets = pd.DataFrame([make_market("m", end_days=10, outcome=1.0)])
+    prices = path_market("m", pts)
+    settle = build_settlement_table(markets, prices)
+    spread = {"tiers": [0.0], "half_spread": [0.01], "source": "test"}
+    t = momentum_trades(prices, markets, settle, spread, delta=0.15,
+                        direction="with", min_volume=0, entry_bar="next_worse")
+    assert len(t) == 1
+    row = t.iloc[0]
+    assert row["fill"] == pytest.approx(0.61)
+    assert row["signal_t"] == pytest.approx(T0 + 6 * DAY)
+    # NO buy ('against'): worse for NO buyer = lower yes price = 0.50
+    a = momentum_trades(prices, markets, settle, spread, delta=0.15,
+                        direction="against", min_volume=0, entry_bar="next_worse")
+    assert a.iloc[0]["fill"] == pytest.approx((1 - 0.50) + 0.01)
