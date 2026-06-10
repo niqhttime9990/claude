@@ -21,6 +21,49 @@ def _to_utc_naive(s: pd.Series) -> pd.Series:
     return out.dt.tz_localize(None)
 
 
+CATEGORY_RULES = [
+    # (category, keywords matched against slug + event_slug + question, lowercase)
+    ("sports", ("nba", "nfl", "mlb", "nhl", "epl", "ucl", "uel", "laliga",
+                "la-liga", "serie-a", "bundesliga", "ligue", "premier-league",
+                "champions-league", "world-cup", "wimbledon", "us-open",
+                "super-bowl", "superbowl", "ufc", "f1-", "grand-prix", "atp",
+                "wta", "ncaa", "cfb", "cbb", "college-football", "olympic",
+                "masters", "pga", "boxing", " vs. ", "-vs-", "spread:",
+                "moneyline", "world-series", "stanley-cup", "playoff")),
+    ("crypto", ("bitcoin", "btc", "ethereum", "eth-", "solana", "-sol-",
+                "crypto", "dogecoin", "xrp", "memecoin", "altcoin",
+                "up-or-down", "satoshi", "microstrategy")),
+    ("politics", ("election", "president", "senate", "congress", "governor",
+                  "primary", "nominee", "trump", "biden", "harris", "vance",
+                  "democrat", "republican", "parliament", "chancellor",
+                  "prime-minister", "mayor", "cabinet", "impeach", "veto",
+                  "executive-order", "supreme-court", "scotus", "midterm")),
+    ("geopolitics", ("ukraine", "russia", "israel", "gaza", "iran", "china",
+                     "taiwan", "nato", "ceasefire", "war", "strike-on",
+                     "north-korea", "houthi", "syria", "venezuela")),
+    ("economics", ("fed-", "fomc", "rate-cut", "rate-hike", "inflation",
+                   "cpi-", "gdp", "recession", "unemployment", "tariff",
+                   "treasury", "debt-ceiling", "jobs-report", "payrolls")),
+    ("entertainment", ("oscar", "grammy", "emmy", "box-office", "rotten",
+                       "spotify", "billboard", "album", "movie", "netflix",
+                       "taylor-swift", "gta", "game-award", "eurovision",
+                       "time-person", "nobel")),
+    ("tech_ai", ("openai", "gpt", "claude", "gemini", "-ai-", "ai-model",
+                 "spacex", "starship", "apple", "tesla", "nvidia", "iphone",
+                 "google", "deepmind", "llm", "chatbot", "xai", "grok")),
+]
+
+
+def derive_category(slug: str, event_slug: str, question: str) -> str:
+    """Coarse category from keywords — Gamma's embedded event objects carry
+    no tags, and the legacy category field is dead on modern markets."""
+    hay = f"{slug} {event_slug} {question}".lower()
+    for cat, kws in CATEGORY_RULES:
+        if any(k in hay for k in kws):
+            return cat
+    return "other"
+
+
 def load_markets(data_dir: str | Path) -> pd.DataFrame:
     df = pd.read_parquet(Path(data_dir) / "markets.parquet")
     for c in DATE_COLS:
@@ -29,6 +72,11 @@ def load_markets(data_dir: str | Path) -> pd.DataFrame:
     df["market_id"] = df["market_id"].astype(str)
     # A market is usable for outcome studies only with a clean binary label.
     df["resolved_clean"] = df["outcome"].isin([0.0, 1.0])
+    df["category"] = [
+        derive_category(s or "", e or "", q or "")
+        for s, e, q in zip(df.get("slug", ""), df.get("event_slug", ""),
+                           df.get("question", ""))
+    ]
     return df
 
 
