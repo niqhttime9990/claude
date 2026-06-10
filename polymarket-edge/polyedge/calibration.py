@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 from .dataio import snapshot_at_horizon
-from .stats import binomial_calibration_test, wilson_interval
+from .stats import binomial_calibration_test, event_clusters as _clusters, wilson_interval
 
 
 def calibration_table(
@@ -49,20 +49,22 @@ def calibration_table(
 
 def flb_tests(snapshots: pd.DataFrame) -> dict:
     """Favorite-longshot bias tests on the per-market snapshot table,
-    overall and per segment."""
+    overall and per segment. Errors cluster by event (sibling outcomes of
+    one election/championship are one draw, not fifty)."""
     out = {"overall": binomial_calibration_test(
-        snapshots["snap_p"].to_numpy(), snapshots["outcome"].to_numpy())}
+        snapshots["snap_p"].to_numpy(), snapshots["outcome"].to_numpy(),
+        _clusters(snapshots))}
     for name, sel in [
         ("vol>=10k", snapshots["volume"] >= 10_000),
         ("vol>=100k", snapshots["volume"] >= 100_000),
     ]:
         g = snapshots[sel]
         out[name] = binomial_calibration_test(
-            g["snap_p"].to_numpy(), g["outcome"].to_numpy())
+            g["snap_p"].to_numpy(), g["outcome"].to_numpy(), _clusters(g))
     for cat, g in snapshots.groupby(snapshots["category"].fillna("uncat")):
         if len(g) >= 300:
             out[f"cat:{cat}"] = binomial_calibration_test(
-                g["snap_p"].to_numpy(), g["outcome"].to_numpy())
+                g["snap_p"].to_numpy(), g["outcome"].to_numpy(), _clusters(g))
     return out
 
 

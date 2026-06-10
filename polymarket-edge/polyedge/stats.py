@@ -9,6 +9,12 @@ import pandas as pd
 from scipy import stats as sps
 
 
+def event_clusters(df: pd.DataFrame) -> np.ndarray:
+    """Cluster key for inference: the event when known, else the market —
+    sibling outcomes of one election/championship are one draw, not fifty."""
+    return df["event_id"].fillna("mkt:" + df["market_id"].astype(str)).to_numpy()
+
+
 def wilson_interval(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
     """Wilson score interval for a binomial proportion."""
     if n == 0:
@@ -94,26 +100,42 @@ def deflated_p_note(n_cells_tested: int, best_p: float) -> dict:
             "family_wise_p_independent_approx": float(fam)}
 
 
-def binomial_calibration_test(prices: np.ndarray, outcomes: np.ndarray) -> dict:
+def binomial_calibration_test(
+    prices: np.ndarray, outcomes: np.ndarray, clusters: np.ndarray | None = None
+) -> dict:
     """Regression test for favorite-longshot bias: outcome - p ~ a + b*(p-0.5).
 
     b < 0 means favorites underpriced / longshots overpriced (classic FLB:
-    extremes too moderate); b > 0 the reverse. OLS with HC1 errors (clusters
-    are handled upstream by reporting event-level subsamples)."""
+    extremes too moderate); b > 0 the reverse. Cluster-robust (CR1) errors
+    when clusters are given — sibling outcomes of one event are not
+    independent observations; HC1 otherwise."""
     x = prices - 0.5
     y = outcomes - prices
     n = len(x)
     if n < 50:
-        return {"slope": np.nan, "t": np.nan, "p": np.nan, "n": n}
+        return {"intercept": np.nan, "slope": np.nan, "t": np.nan, "p": np.nan,
+                "n": n, "n_clusters": 0}
     X = np.column_stack([np.ones(n), x])
     beta, *_ = np.linalg.lstsq(X, y, rcond=None)
     resid = y - X @ beta
-    # HC1 sandwich
     XtX_inv = np.linalg.inv(X.T @ X)
-    meat = (X * (resid**2)[:, None]).T @ X * (n / (n - 2))
+    if clusters is not None:
+        uniq = pd.unique(clusters)
+        G = len(uniq)
+        meat = np.zeros((2, 2))
+        for c in uniq:
+            sel = clusters == c
+            s = X[sel].T @ resid[sel]
+            meat += np.outer(s, s)
+        meat *= (G / max(G - 1, 1)) * ((n - 1) / max(n - 2, 1))
+        dof = max(G - 1, 1)
+    else:
+        meat = (X * (resid**2)[:, None]).T @ X * (n / (n - 2))
+        dof = n - 2
     cov = XtX_inv @ meat @ XtX_inv
     se = np.sqrt(np.diag(cov))
     t = beta[1] / se[1]
-    p = 2 * (1 - sps.t.cdf(abs(t), df=n - 2))
+    p = 2 * (1 - sps.t.cdf(abs(t), df=dof))
     return {"intercept": float(beta[0]), "slope": float(beta[1]),
-            "t": float(t), "p": float(p), "n": n}
+            "t": float(t), "p": float(p), "n": n,
+            "n_clusters": int(len(pd.unique(clusters))) if clusters is not None else n}

@@ -39,6 +39,9 @@ class Bot:
         self.live = live
         self.stake_usd = stake_usd
         self.state_dir = Path(state_dir)
+        # In live mode the paper executor doubles as the shadow book that
+        # exposures, settlement, and the drawdown kill switch read from
+        # (live submissions are recorded into it as assumed fills).
         self.paper = PaperExecutor(self.state_dir / "paper_state.json")
         self.executor = LiveExecutor() if live else self.paper
         self.risk = RiskManager(limits or RiskLimits())
@@ -69,6 +72,23 @@ class Bot:
         )
         self.risk.check_portfolio(view)
         approved = []
+
+        def reserve(it: OrderIntent) -> None:
+            # approved-but-unfilled orders must count against the caps, or a
+            # batch of N orders each passes while collectively busting them
+            view.gross_exposure += it.usd
+            view.market_exposure[it.market_id] = (
+                view.market_exposure.get(it.market_id, 0.0) + it.usd)
+            if it.event_id:
+                view.event_exposure[it.event_id] = (
+                    view.event_exposure.get(it.event_id, 0.0) + it.usd)
+
+        def release(it: OrderIntent) -> None:
+            view.gross_exposure -= it.usd
+            view.market_exposure[it.market_id] -= it.usd
+            if it.event_id:
+                view.event_exposure[it.event_id] -= it.usd
+
         # All-or-none groups: approve only complete groups.
         groups: dict[str | None, list[OrderIntent]] = {}
         for it in intents:
@@ -81,6 +101,8 @@ class Bot:
                     price=it.limit_price, usd=it.usd, spread=None,
                     edge=it.edge, view=view,
                 )
+                if ok:
+                    reserve(it)
                 verdicts.append((it, ok, why))
                 jlog(self.log_path, {"type": "risk", "ok": ok, "why": why,
                                      "intent": it.__dict__})
@@ -88,6 +110,10 @@ class Bot:
                 approved.extend(it for it, ok, _ in verdicts if ok)
             elif all(ok for _, ok, _ in verdicts):
                 approved.extend(legs)
+            else:
+                for it, ok, _ in verdicts:  # roll back partial group reservations
+                    if ok:
+                        release(it)
         return approved
 
     async def execute(self, intents: list[OrderIntent]) -> None:
@@ -95,6 +121,14 @@ class Bot:
             return
         books = await self.gw.books(list({it.token_id for it in intents}))
         results = self.executor.execute_batch(intents, books)
+        if self.live:
+            # shadow-book live submissions so exposures/risk caps keep binding
+            by_token = {it.token_id: it for it in intents}
+            for r in results:
+                if r.get("status") == "submitted":
+                    it = by_token.get(r["intent"]["token_id"])
+                    if it is not None:
+                        self.paper.record_external_fill(it)
         for r in results:
             jlog(self.log_path, {"type": "execution", **r})
 

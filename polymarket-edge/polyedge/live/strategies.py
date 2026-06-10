@@ -70,7 +70,9 @@ async def favorite_scan(
         except (TypeError, ValueError):
             continue
 
-    books = await gw.books([c[1] for c in cands])
+    want_no = side_mode in ("no", "both")
+    tokens = [c[1] for c in cands] + ([c[2] for c in cands] if want_no else [])
+    books = await gw.books(tokens)
     for m, yes_tok, no_tok in cands:
         book = books.get(yes_tok)
         if book is None or book.best_ask is None or book.best_bid is None:
@@ -88,8 +90,8 @@ async def favorite_scan(
                 reason=f"favorite YES mid={mid:.3f} spread={spread:.3f} q='{str(m.get('question'))[:60]}'",
             ))
         # NO favorite: yes bid below 1-theta means NO trades above theta
-        if side_mode in ("no", "both") and book.best_bid <= 1 - theta and no_tok not in held_tokens:
-            no_book = await gw.book(no_tok)
+        if want_no and book.best_bid <= 1 - theta and no_tok not in held_tokens:
+            no_book = books.get(no_tok)
             if no_book and no_book.best_ask and theta <= no_book.best_ask <= 0.985:
                 intents.append(OrderIntent(
                     strategy="favorite", market_id=str(m["id"]),
@@ -135,52 +137,42 @@ async def negrisk_scan(
         if not ok:
             continue
 
-        # --- buy-all-NO: cost < n-1 ---
-        no_books = await gw.books([l[2] for l in legs])
-        if len(no_books) == len(legs):
-            cost, depth_ok = 0.0, True
-            for _, _, no_tok in legs:
-                b = no_books[no_tok]
-                plan = b.buy_cost(stake_sets * (b.best_ask or 1.0)) if b.asks else None
-                if b.best_ask is None or plan is None:
-                    depth_ok = False
-                    break
-                cost += plan[0]  # avg price for the sized clip
-            if depth_ok and (n - 1) - cost >= min_edge_per_set:
-                gid = f"negrisk-no-{ev.get('id')}-{int(time.time())}"
-                for mid_, _, no_tok in legs:
-                    b = no_books[no_tok]
-                    intents.append(OrderIntent(
-                        strategy="negrisk", market_id=mid_,
-                        event_id=str(ev.get("id")), token_id=no_tok, side="BUY",
-                        limit_price=min(0.999, (b.best_ask or 1.0) + 0.002),
-                        usd=stake_sets * (b.best_ask or 1.0),
-                        edge=((n - 1) - cost) / max(cost, 1e-9),
-                        reason=f"negrisk NO set cost={cost:.3f} < n-1={n - 1} ev='{str(ev.get('title'))[:50]}'",
-                        all_or_none_group=gid,
-                    ))
+        all_books = await gw.books([l[2] for l in legs] + [l[1] for l in legs])
 
-        # --- buy-all-YES: cost < 1 ---
-        yes_books = await gw.books([l[1] for l in legs])
-        if len(yes_books) == len(legs):
-            cost, depth_ok = 0.0, True
-            for _, yes_tok, _ in legs:
-                b = yes_books[yes_tok]
-                if b.best_ask is None:
-                    depth_ok = False
-                    break
-                cost += b.best_ask
-            if depth_ok and 1.0 - cost >= min_edge_per_set:
-                gid = f"negrisk-yes-{ev.get('id')}-{int(time.time())}"
-                for mid_, yes_tok, _ in legs:
-                    b = yes_books[yes_tok]
-                    intents.append(OrderIntent(
-                        strategy="negrisk", market_id=mid_,
-                        event_id=str(ev.get("id")), token_id=yes_tok, side="BUY",
-                        limit_price=min(0.999, (b.best_ask or 1.0) + 0.002),
-                        usd=stake_sets * (b.best_ask or 1.0),
-                        edge=(1.0 - cost) / max(cost, 1e-9),
-                        reason=f"negrisk YES set cost={cost:.3f} < 1 ev='{str(ev.get('title'))[:50]}'",
-                        all_or_none_group=gid,
-                    ))
+        def basket(side_idx: int, payout: float, tag: str) -> None:
+            """Price one full set on the given side; emit FOK legs if the
+            set costs at least min_edge less than its deterministic payout."""
+            toks = [l[side_idx] for l in legs]
+            if any(t not in all_books for t in toks):
+                return
+            asks: dict[str, float] = {}
+            cost = 0.0
+            for t in toks:
+                b = all_books[t]
+                ask = b.best_ask
+                # tick floor is 0.001; a 0/None ask means a husk book
+                if ask is None or ask <= 0.0 or ask >= 1.0:
+                    return
+                plan = b.buy_cost(stake_sets * ask)
+                if plan is None:  # not enough depth for the clip
+                    return
+                asks[t] = ask
+                cost += plan[0]
+            if payout - cost < min_edge_per_set:
+                return
+            gid = f"negrisk-{tag}-{ev.get('id')}-{int(time.time())}"
+            for (mid_, *_), t in zip(legs, toks):
+                intents.append(OrderIntent(
+                    strategy="negrisk", market_id=mid_,
+                    event_id=str(ev.get("id")), token_id=t, side="BUY",
+                    limit_price=min(0.999, asks[t] + 0.002),
+                    usd=stake_sets * asks[t],
+                    edge=(payout - cost) / max(cost, 1e-9),
+                    reason=(f"negrisk {tag} set cost={cost:.3f} payout={payout} "
+                            f"ev='{str(ev.get('title'))[:50]}'"),
+                    all_or_none_group=gid,
+                ))
+
+        basket(2, float(n - 1), "NO")   # buy all NO: pays n-1 per set
+        basket(1, 1.0, "YES")           # buy all YES: pays 1 per set
     return intents

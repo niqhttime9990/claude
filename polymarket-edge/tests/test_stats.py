@@ -53,3 +53,19 @@ def test_weekly_performance_and_drawdown():
     assert wk["weekly_std"] == pytest.approx(0.0, abs=1e-9) or wk["sharpe_ann"] > 5
     eq = pd.Series([0, 1, 2, 1.5, 3, 2.0], dtype=float)
     assert max_drawdown(eq) == pytest.approx(-1.0)
+
+
+def test_flb_cluster_robust_wider():
+    from polyedge.stats import binomial_calibration_test
+    rng = np.random.default_rng(5)
+    # 40 events, 25 perfectly correlated members each
+    n_ev, per = 40, 25
+    p_ev = rng.uniform(0.05, 0.95, n_ev)
+    y_ev = (rng.uniform(size=n_ev) < p_ev).astype(float)
+    prices = np.repeat(p_ev, per)
+    outcomes = np.repeat(y_ev, per)
+    clusters = np.repeat(np.arange(n_ev), per)
+    iid = binomial_calibration_test(prices, outcomes)
+    cl = binomial_calibration_test(prices, outcomes, clusters)
+    assert abs(cl["t"]) < abs(iid["t"])  # clustering must deflate t
+    assert cl["n_clusters"] == n_ev

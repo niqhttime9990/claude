@@ -57,21 +57,21 @@ def favorite_trades(
     where the favorite condition holds; hold to resolution."""
     m = _prep(markets)
     m = m[m["volume"] >= min_volume]
-    meta = m.set_index("market_id")
     settle_map = settle.set_index("market_id")["settle_t"].to_dict()
-    end_map = meta["end_t"].to_dict()
+    end_map = dict(zip(m["market_id"], m["end_t"]))
+    recs = m.to_dict("records")
+    h_arr = haircut_for_volume(m["volume"].to_numpy(), spread) * haircut_mult
 
     series = _as_series(prices)
     trades: list[dict] = []
-    for mid in meta.index:
+    for row, h in zip(recs, h_arr):
+        mid = row["market_id"]
         if mid not in series:
             continue
         t_arr, p_arr = series[mid]
-        row = meta.loc[mid]
         end_t, closed_t = row["end_t"], row["closed_t"]
         lo_t = end_t - window_days * 86400
         hard_stop = min(end_t, closed_t) if np.isfinite(closed_t) else end_t
-        h = haircut_for_volume(np.array([row["volume"]]), spread)[0] * haircut_mult
         first_t = t_arr[0]
         for t, p in zip(t_arr, p_arr):
             if t < lo_t or t >= hard_stop:
@@ -119,21 +119,21 @@ def momentum_trades(
     against) the move's direction at the signal bar. One trade per market."""
     m = _prep(markets)
     m = m[m["volume"] >= min_volume]
-    meta = m.set_index("market_id")
     settle_map = settle.set_index("market_id")["settle_t"].to_dict()
-    end_map = meta["end_t"].to_dict()
+    end_map = dict(zip(m["market_id"], m["end_t"]))
+    recs = m.to_dict("records")
+    h_arr = haircut_for_volume(m["volume"].to_numpy(), spread) * haircut_mult
     lb_s = lookback_h * 3600
 
     series = _as_series(prices)
     trades: list[dict] = []
-    for mid in meta.index:
+    for row, h in zip(recs, h_arr):
+        mid = row["market_id"]
         if mid not in series:
             continue
         t_arr, p_arr = series[mid]
-        row = meta.loc[mid]
         end_t, closed_t = row["end_t"], row["closed_t"]
         hard_stop = min(end_t, closed_t) if np.isfinite(closed_t) else end_t
-        h = haircut_for_volume(np.array([row["volume"]]), spread)[0] * haircut_mult
         n = len(t_arr)
         j = 0
         for i in range(n):

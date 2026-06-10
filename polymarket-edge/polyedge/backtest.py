@@ -13,7 +13,14 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from .stats import cluster_bootstrap_mean, max_drawdown, weekly_performance
+from .stats import cluster_bootstrap_mean, event_clusters, max_drawdown, weekly_performance
+
+EMPTY_EVAL_KEYS = (
+    "n_events", "mean_ret", "ci_lo", "ci_hi", "p_le0", "hit_rate",
+    "total_pnl_per_$1_stakes", "max_concurrent_stakes", "ann_ret_on_capital",
+    "sharpe_ann_weekly", "n_weeks", "max_drawdown_$", "median_market_volume",
+    "span_days",
+)
 
 TRADE_COLS = [
     "market_id", "event_id", "category", "side", "signal_t", "fill",
@@ -53,9 +60,11 @@ def max_concurrency(trades: pd.DataFrame) -> int:
 def evaluate(trades: pd.DataFrame, label: str = "", n_boot: int = 4000) -> dict:
     """Full evaluation of a trade set. Returns a flat dict for tabulation."""
     if trades.empty:
-        return {"label": label, "n_trades": 0}
+        # full schema so consumers never KeyError on an empty cell
+        return {"label": label, "n_trades": 0,
+                **{k: np.nan for k in EMPTY_EVAL_KEYS}}
     t = trades.copy()
-    clusters = t["event_id"].fillna("mkt:" + t["market_id"].astype(str)).to_numpy()
+    clusters = event_clusters(t)
     boot = cluster_bootstrap_mean(t["ret"].to_numpy(), clusters, n_boot=n_boot)
     pnl = pd.Series(t["ret"].to_numpy(),
                     index=pd.to_datetime(t["exit_t"].to_numpy(), unit="s")).sort_index()

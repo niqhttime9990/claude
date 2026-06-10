@@ -105,3 +105,43 @@ def test_buy_cost_depth():
     assert shares == pytest.approx(15.0)
     assert avg == pytest.approx(8.0 / 15.0)
     assert b.buy_cost(100.0) is None
+
+
+def test_aon_group_respects_cash(tmp_path):
+    ex = PaperExecutor(tmp_path / "s.json", start_cash=15.0)
+    books = {
+        "t1": book("t1", asks=[(0.50, 1000.0)]),
+        "t2": book("t2", asks=[(0.50, 1000.0)]),
+    }
+    legs = [intent("t1", 0.55, 10.0, group="g"), intent("t2", 0.55, 10.0, group="g")]
+    res = ex.execute_batch(legs, books)
+    assert all(r["status"] == "aon_unfillable" for r in res)
+    assert ex.state["cash"] == 15.0
+
+
+def test_gate_batch_cumulative_exposure(tmp_path):
+    import asyncio
+
+    from polyedge.live.bot import Bot
+    from polyedge.live.risk import RiskLimits
+
+    bot = Bot.__new__(Bot)  # avoid network-touching __init__
+    bot.params = {}
+    bot.live = False
+    bot.paper = PaperExecutor(tmp_path / "s.json", start_cash=1000.0)
+    from polyedge.live.risk import RiskManager
+    bot.risk = RiskManager(RiskLimits(max_order_usd=100, max_market_usd=1000,
+                                      max_event_usd=1000, max_gross_usd=150,
+                                      min_edge=0.0))
+    bot.log_path = tmp_path / "log.jsonl"
+    intents = [intent(f"t{i}", 0.5, 60.0, market=f"m{i}") for i in range(4)]
+    approved = bot.gate(intents)
+    # 60*2=120 <= 150 but 60*3=180 > 150: only two may pass
+    assert len(approved) == 2
+
+
+def test_record_external_fill(tmp_path):
+    ex = PaperExecutor(tmp_path / "s.json", start_cash=100.0)
+    ex.record_external_fill(intent("t9", 0.50, 10.0))
+    assert ex.state["cash"] == pytest.approx(90.0)
+    assert ex.state["positions"]["t9"]["shares"] == pytest.approx(20.0)

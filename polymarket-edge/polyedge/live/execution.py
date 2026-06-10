@@ -79,8 +79,10 @@ class PaperExecutor:
             groups.setdefault(it.all_or_none_group, []).append(it)
         for gid, legs in groups.items():
             if gid is not None:
+                # atomicity needs depth AND cash for the whole basket up front
                 fills = [self._plan_fill(it, books.get(it.token_id)) for it in legs]
-                if any(f is None for f in fills):
+                group_cost = sum(it.usd for it in legs)
+                if any(f is None for f in fills) or group_cost > self.state["cash"]:
                     results.extend({"intent": it.__dict__, "status": "aon_unfillable"}
                                    for it in legs)
                     continue
@@ -88,6 +90,23 @@ class PaperExecutor:
                 results.append(self._fill(it, books.get(it.token_id)))
         self._save()
         return results
+
+    def record_external_fill(self, it: OrderIntent) -> None:
+        """Shadow-book an order submitted through another executor (live mode)
+        so exposures and the risk gate keep binding. Conservatively assumes
+        the submitted order fills completely at its limit price."""
+        shares = it.usd / max(it.limit_price, 0.001)
+        self.state["cash"] -= it.usd
+        pos = self.state["positions"].setdefault(it.token_id, {
+            "shares": 0.0, "avg_price": 0.0, "market_id": it.market_id,
+            "event_id": it.event_id, "strategy": it.strategy,
+        })
+        tot_cost = pos["shares"] * pos["avg_price"] + it.usd
+        pos["shares"] += shares
+        pos["avg_price"] = tot_cost / pos["shares"]
+        self.state["log"].append({"ts": time.time(), "type": "shadow_fill",
+                                  "intent": it.__dict__})
+        self._save()
 
     def _plan_fill(self, it: OrderIntent, book: Book | None):
         if book is None or not book.asks:

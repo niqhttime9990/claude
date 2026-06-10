@@ -129,12 +129,10 @@ def main() -> int:
     report.append(
         "Snapshot = last mid at horizon h before the settle flatline "
         "(see dataio.settle_time). Wilson 95% intervals; FLB regression "
-        "`outcome - p ~ a + b(p - 0.5)` with HC1 errors.\n"
+        "`outcome - p ~ a + b(p - 0.5)` with event-cluster-robust errors.\n"
     )
-    snap_store: dict[str, pd.DataFrame] = {}
     for h_s, lbl in [(24 * H, "24h"), (72 * H, "72h"), (168 * H, "7d")]:
         snaps, binned = calibration_table(prices, markets, settle, h_s, n_bins=20)
-        snap_store[lbl] = snaps
         binned.to_csv(out / "tables" / f"calibration_{lbl}.csv", index=False)
         fig_calibration(binned, lbl, out / f"fig_calibration_{lbl}.png")
         tests = flb_tests(snaps)
@@ -166,13 +164,17 @@ def main() -> int:
         "lower bound and is then frozen for OOS.\n"
     )
     fav_cells: dict[str, pd.DataFrame] = {}
+    fav_params: dict[str, dict] = {}
     for theta in (0.90, 0.93, 0.95, 0.97):
         for window in (1.0, 3.0, 7.0):
             for side in ("yes", "no", "both"):
+                cell = f"fav θ={theta} W={window:g}d {side}"
+                fav_params[cell] = {"theta": theta, "window_days": window,
+                                    "side_mode": side}
                 t = favorite_trades(series, markets, settle, spread,
                                     theta=theta, window_days=window,
                                     side_mode=side)
-                fav_cells[f"fav θ={theta} W={window:g}d {side}"] = (
+                fav_cells[cell] = (
                     t if not t.empty else pd.DataFrame(columns=["signal_t"]))
     fav_wf = walk_forward(fav_cells, args.cutoff)
     fav_wf["train_table"].to_csv(out / "tables" / "favorite_train_grid.csv", index=False)
@@ -201,14 +203,11 @@ def main() -> int:
         fav_ok = bool(ev["ci_lo"] > 0 and ev["n_trades"] >= 100)
         # cost sensitivity on the chosen cell
         sens = []
-        theta = float(fav_wf["chosen"].split("θ=")[1].split(" ")[0])
-        window = float(fav_wf["chosen"].split("W=")[1].split("d")[0])
-        side = fav_wf["chosen"].split()[-1]
+        cp = fav_params[fav_wf["chosen"]]
         for mult, lab in [(0.0, "no costs"), (1.0, "1x half-spread"),
                           (2.0, "2x half-spread")]:
-            tr = favorite_trades(series, markets, settle, spread, theta=theta,
-                                 window_days=window, side_mode=side,
-                                 haircut_mult=mult)
+            tr = favorite_trades(series, markets, settle, spread,
+                                 haircut_mult=mult, **cp)
             _, te = split_by_date(tr, args.cutoff)
             e = evaluate(dedupe_per_event(te), label=lab, n_boot=1500)
             sens.append({"costs": lab, "mean_ret": e.get("mean_ret"),
@@ -312,12 +311,12 @@ def main() -> int:
                     "train_cutoff": args.cutoff,
                     "data_through": str(data_through)}
     if fav_ok and fav_wf["chosen"]:
-        c = fav_wf["chosen"]
+        cp = fav_params[fav_wf["chosen"]]
         params["favorite"] = {
             "enabled": True,
-            "theta": float(c.split("θ=")[1].split(" ")[0]),
-            "window_days": float(c.split("W=")[1].split("d")[0]),
-            "side_mode": c.split()[-1],
+            "theta": cp["theta"],
+            "window_days": cp["window_days"],
+            "side_mode": cp["side_mode"],
             "min_volume": 10000.0,
             "expected_ret": float(fav_wf["test_eval"]["mean_ret"]),
             "oos_ci": [float(fav_wf["test_eval"]["ci_lo"]),
