@@ -230,6 +230,20 @@ def main() -> int:
             report.append("\nPer-quarter stability of the chosen cell "
                           "(quarters after the cutoff are out-of-sample):\n\n"
                           + pd.DataFrame(rows).to_markdown(index=False) + "\n")
+        # concentration check: is the OOS edge one market type in disguise?
+        te = fav_wf["test_trades"]
+        if te is not None and not te.empty:
+            rows = []
+            for cat, g in te.groupby(te["category"].fillna("uncat")):
+                if len(g) >= 30:
+                    e = evaluate(g, n_boot=800)
+                    rows.append({"category": cat, "n": e["n_trades"],
+                                 "mean_ret": round(e["mean_ret"], 4),
+                                 "ci_lo": round(e["ci_lo"], 4),
+                                 "ci_hi": round(e["ci_hi"], 4)})
+            if rows:
+                report.append("\nOOS by category (chosen cell, n>=30):\n\n"
+                              + pd.DataFrame(rows).to_markdown(index=False) + "\n")
 
     # --------------------------------------------- momentum strategy WF
     report.append("\n## 3. Momentum / underreaction — walk-forward\n")
