@@ -221,9 +221,12 @@ async def _scan_window(
     depth: int = 0,
 ) -> None:
     """Scan one end_date window, volume-descending. If the window saturates
-    the offset cap, split it in half (Gamma rejects offset > 10000)."""
+    the offset cap, split it in half (Gamma rejects offset > 10000).
+
+    Gamma silently caps `limit` at 100 regardless of the requested value, so
+    pagination must advance by the length actually returned."""
     offset = 0
-    page_size = 500
+    page_size = 100
     while True:
         params = {
             "closed": "true", "limit": page_size, "offset": offset,
@@ -249,7 +252,7 @@ async def _scan_window(
         # volume-desc ordering: once a whole page is below threshold, stop
         if vols and max(vols) < vol_min:
             return
-        offset += page_size
+        offset += len(page)
         if offset > MAX_OFFSET:
             if depth >= 4:
                 STATS.note_error("gamma/markets", f"window {lo}..{hi} still saturated at depth {depth}")
@@ -432,10 +435,11 @@ async def fetch_active_snapshot(
     client: httpx.AsyncClient, pacer: Pacer, top_n: int
 ) -> tuple[list[dict], list[dict]]:
     markets: list[dict] = []
-    for offset in range(0, max(2500, top_n * 5), 500):
+    offset = 0
+    while len(markets) < top_n and offset <= MAX_OFFSET:
         page = await get_json(
             client, pacer, f"{GAMMA}/markets",
-            {"active": "true", "closed": "false", "limit": 500, "offset": offset,
+            {"active": "true", "closed": "false", "limit": 100, "offset": offset,
              "order": "volume24hr", "ascending": "false"},
         )
         if not isinstance(page, list) or not page:
@@ -444,8 +448,7 @@ async def fetch_active_snapshot(
             row = normalize_market(m, "active_snapshot")
             if row and row["yes_token"]:
                 markets.append(row)
-        if len(markets) >= top_n:
-            break
+        offset += len(page)
     markets = sorted(markets, key=lambda r: -r["volume_24h"])[:top_n]
     print(f"[active] snapshot of {len(markets)} active markets; fetching books")
 
@@ -501,7 +504,7 @@ async def main() -> int:
     ap.add_argument("--max-markets", type=int, default=60000)
     ap.add_argument("--hourly-top", type=int, default=4000)
     ap.add_argument("--active-top", type=int, default=500)
-    ap.add_argument("--rps", type=float, default=18.0)
+    ap.add_argument("--rps", type=float, default=25.0)
     args = ap.parse_args()
 
     out_dir = Path(args.out)
@@ -513,7 +516,7 @@ async def main() -> int:
     }
 
     gamma_pacer = Pacer(8.0, floor=2.0, ceiling=15.0)
-    clob_pacer = Pacer(args.rps)
+    clob_pacer = Pacer(args.rps, ceiling=40.0)
 
     limits = httpx.Limits(max_connections=32, max_keepalive_connections=32)
     async with httpx.AsyncClient(headers=UA, limits=limits, http2=False) as client:
