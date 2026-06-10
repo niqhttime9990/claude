@@ -104,9 +104,10 @@ async def get_json(
                 STATS.rate_limited += r.status_code == 429
                 pacer.punish()
                 raise httpx.HTTPStatusError("retryable", request=r.request, response=r)
-            if r.status_code == 400:
-                # Caller may want to adjust params; surface as None-with-flag.
-                return {"__http_400__": True, "body": r.text[:300]}
+            if r.status_code in (400, 422):
+                # Parameter problem — retrying identical params is futile.
+                return {"__http_400__": True, "status": r.status_code,
+                        "body": r.text[:300]}
             r.raise_for_status()
             pacer.reward()
             return r.json()
@@ -205,6 +206,11 @@ def normalize_market(m: dict, source: str) -> dict | None:
 MAX_OFFSET = 9_500  # Gamma 422s past offset 10000; windows keep us under it
 
 
+def iso_z(ts: pd.Timestamp) -> str:
+    """Gamma 422s on timezone-naive ISO strings; it wants the Z suffix."""
+    return ts.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 async def _scan_window(
     client: httpx.AsyncClient,
     pacer: Pacer,
@@ -248,8 +254,8 @@ async def _scan_window(
             if depth >= 4:
                 STATS.note_error("gamma/markets", f"window {lo}..{hi} still saturated at depth {depth}")
                 return
-            mid = pd.Timestamp(lo) + (pd.Timestamp(hi) - pd.Timestamp(lo)) / 2
-            mid_s = mid.isoformat()
+            mid = pd.Timestamp(lo.rstrip("Z")) + (pd.Timestamp(hi.rstrip("Z")) - pd.Timestamp(lo.rstrip("Z"))) / 2
+            mid_s = iso_z(mid)
             print(f"[gamma] window {lo}..{hi} saturated; splitting at {mid_s}")
             await _scan_window(client, pacer, out, vol_min, lo, mid_s, depth + 1)
             await _scan_window(client, pacer, out, vol_min, mid_s, hi, depth + 1)
@@ -269,10 +275,17 @@ async def fetch_closed_markets(
     start = pd.Timestamp(end_date_min.replace("Z", ""))
     horizon = pd.Timestamp.now("UTC").tz_localize(None) + pd.Timedelta(days=550)
     edges = pd.date_range(start, horizon, freq="MS")
+    # fail fast and loud if the window param format is rejected — a silent
+    # per-window failure once cost a whole run (and very nearly the dataset)
+    probe = await get_json(client, pacer, f"{GAMMA}/markets", {
+        "closed": "true", "limit": 1, "offset": 0,
+        "end_date_min": iso_z(edges[0]), "end_date_max": iso_z(edges[1]),
+    })
+    if isinstance(probe, dict) and probe.get("__http_400__"):
+        raise RuntimeError(f"gamma rejected window params: {probe}")
     for lo, hi in zip(edges, edges[1:]):
         before = len(out)
-        await _scan_window(client, pacer, out, vol_min,
-                           lo.isoformat(), hi.isoformat())
+        await _scan_window(client, pacer, out, vol_min, iso_z(lo), iso_z(hi))
         print(f"[gamma] window {lo:%Y-%m}: +{len(out) - before} (total {len(out)})")
         if len(out) >= max_markets:
             print("[gamma] hit max_markets cap")

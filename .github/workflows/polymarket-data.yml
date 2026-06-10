@@ -44,7 +44,10 @@ jobs:
         run: |
           set -e
           cd "$RUNNER_TEMP/data_out"
-          if [ ! -f MANIFEST.json ]; then echo "no data produced"; exit 0; fi
+          # never overwrite a good snapshot with an empty one
+          if [ ! -f markets.parquet ] || [ ! -f MANIFEST.json ]; then
+            echo "no usable data produced; keeping existing data branch"; exit 0
+          fi
           git init -b claude/brave-mendel-mvive7-data
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
