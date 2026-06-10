@@ -216,6 +216,21 @@ def main() -> int:
                          "n": e.get("n_trades")})
         report.append("\nCost sensitivity (OOS, chosen cell):\n\n"
                       + pd.DataFrame(sens).to_markdown(index=False) + "\n")
+        # per-quarter stability over the whole sample (train + OOS)
+        all_chosen = dedupe_per_event(fav_cells[fav_wf["chosen"]])
+        if not all_chosen.empty:
+            q = pd.to_datetime(all_chosen["signal_t"], unit="s").dt.to_period("Q")
+            rows = []
+            for per, g in all_chosen.groupby(q):
+                e = evaluate(g, n_boot=800)
+                rows.append({"quarter": str(per), "n": e["n_trades"],
+                             "mean_ret": round(e["mean_ret"], 4),
+                             "ci_lo": round(e["ci_lo"], 4),
+                             "ci_hi": round(e["ci_hi"], 4),
+                             "oos": str(per.start_time >= pd.Timestamp(args.cutoff))})
+            report.append("\nPer-quarter stability of the chosen cell "
+                          "(quarters after the cutoff are out-of-sample):\n\n"
+                          + pd.DataFrame(rows).to_markdown(index=False) + "\n")
 
     # --------------------------------------------- momentum strategy WF
     report.append("\n## 3. Momentum / underreaction — walk-forward\n")

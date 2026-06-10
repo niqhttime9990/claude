@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import time
+from datetime import datetime
 from pathlib import Path
 
 from .execution import OrderIntent
@@ -51,7 +52,6 @@ async def favorite_scan(
             end_ts = m.get("endDate")
             if not end_ts:
                 continue
-            from datetime import datetime, timezone
             end_t = datetime.fromisoformat(end_ts.replace("Z", "+00:00")).timestamp()
             if not (0 < end_t - now <= window_s):
                 continue
@@ -59,8 +59,9 @@ async def favorite_scan(
                 continue
             if float(m.get("volumeNum") or 0) < min_vol:
                 continue
-            outcomes = [str(o).lower() for o in parse_json_field(m.get("outcomes"))]
-            if outcomes != ["yes", "no"]:
+            # any two-outcome market qualifies (Yes/No, team-vs-team, ...),
+            # matching the backtest universe
+            if len(parse_json_field(m.get("outcomes"))) != 2:
                 continue
             tokens = parse_json_field(m.get("clobTokenIds"))
             if len(tokens) != 2:
