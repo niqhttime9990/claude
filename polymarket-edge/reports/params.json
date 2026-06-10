@@ -1,0 +1,15 @@
+{
+  "generated_utc": "2026-06-10T21:25:05.333379+00:00",
+  "train_cutoff": "2025-12-01",
+  "data_through": "2026-06-10 12:00:09",
+  "favorite": {
+    "enabled": false,
+    "why": "no cell with OOS CI low > 0 and n>=100"
+  },
+  "negrisk": {
+    "enabled": true,
+    "min_edge_per_set": 0.02,
+    "max_members": 25,
+    "rationale": "structural; deterministic payout if basket fills"
+  }
+}

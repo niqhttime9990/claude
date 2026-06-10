@@ -54,6 +54,36 @@ Read `reports/REPORT.md` for the actual numbers, full parameter grids,
 cluster-bootstrap confidence intervals, cost sensitivity, and the
 multiple-testing accounting.
 
+## Results (snapshot: data through 2026-06-10)
+
+89,751 resolved two-outcome markets, $64B lifetime volume, 3.1M price
+points, walk-forward cutoff 2025-12-01. The short version:
+
+- **Calibration**: aggregate prices are close to calibrated. At the 72h
+  horizon favorites were systematically **overpriced** (reverse
+  favorite-longshot bias, b=-0.028, p<1e-4, event-clustered), with strong
+  category heterogeneity (crypto favorites worst; geopolitics longshots
+  underpriced at 24h).
+- **Favorite carry is dead**: buying ≥97¢ favorites in their final day
+  earned +0.3–1.0%/trade net of costs every quarter from 2024Q1 to
+  2025Q3 — and then flipped to **−3.97%/trade out-of-sample** (95% CI
+  [−7.4%, −1.0%], n=172, losses concentrated in crypto threshold
+  markets). The premium got competed away/regime-shifted right as volume
+  exploded. Not armed.
+- **Mean reversion is a measurement illusion**: fading ≥15¢ daily moves
+  shows **+15.3%/trade** if you pretend to fill at the signal bar, and
+  **+0.9%** (OOS CI [−3.2%, +4.0%]) under executable worse-of-next-bar
+  fills. The gap is stale prints you could never trade. Not armed.
+- **Neg-risk basket arbitrage is the real edge**: 30.7% of fresh-mid
+  snapshots across 2,184 multi-outcome events priced a full set beyond
+  per-leg half-spread costs (mid-based upper bound — live books decide).
+  Structural, deterministic payout, always-on in the live scanner with
+  all-or-none execution. This is a speed-and-plumbing edge, not a
+  forecasting edge.
+
+The bot therefore launches with exactly one strategy armed (neg-risk),
+which is what surviving a rigorous backtest actually looks like.
+
 ## Run the research
 
 ```bash

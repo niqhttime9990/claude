@@ -105,10 +105,11 @@ def binomial_calibration_test(
 ) -> dict:
     """Regression test for favorite-longshot bias: outcome - p ~ a + b*(p-0.5).
 
-    b < 0 means favorites underpriced / longshots overpriced (classic FLB:
-    extremes too moderate); b > 0 the reverse. Cluster-robust (CR1) errors
-    when clusters are given — sibling outcomes of one event are not
-    independent observations; HC1 otherwise."""
+    b > 0 means favorites underpriced / longshots overpriced (classic FLB:
+    at high p the outcome exceeds the price); b < 0 the reverse (favorites
+    overpriced). Cluster-robust (CR1) errors when clusters are given —
+    sibling outcomes of one event are not independent observations; HC1
+    otherwise."""
     x = prices - 0.5
     y = outcomes - prices
     n = len(x)

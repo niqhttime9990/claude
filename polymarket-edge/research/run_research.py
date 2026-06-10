@@ -137,11 +137,15 @@ def main() -> int:
         fig_calibration(binned, lbl, out / f"fig_calibration_{lbl}.png")
         tests = flb_tests(snaps)
         ov = tests["overall"]
+        if ov["p"] < 0.05 and ov["slope"] > 0:
+            verdict = "favorites underpriced / longshots overpriced (classic FLB). "
+        elif ov["p"] < 0.05 and ov["slope"] < 0:
+            verdict = "favorites OVERPRICED at this horizon (reverse FLB). "
+        else:
+            verdict = "no significant favorite-longshot bias. "
         report.append(
             f"**{lbl} before resolution** (n={ov['n']:,}): FLB slope "
-            f"b={ov['slope']:.4f} (t={ov['t']:.1f}, p={ov['p']:.2g}) — "
-            + ("favorites underpriced (classic FLB). " if ov["slope"] < 0 and ov["p"] < 0.05
-               else "no significant favorite-longshot bias. ")
+            f"b={ov['slope']:.4f} (t={ov['t']:.1f}, p={ov['p']:.2g}) — " + verdict
         )
         seg_lines = []
         for k, v in tests.items():
@@ -158,10 +162,11 @@ def main() -> int:
     report.append("\n## 2. Favorite strategy — walk-forward\n")
     report.append(
         "Rule: in the final W days before end_date, first bar with p >= θ "
-        "buys YES (p <= 1-θ buys NO) at mid + tiered half-spread; hold to "
-        "resolution. Max 2 trades/event; min lifetime volume $10k. Grid "
-        "below is fully disclosed; the chosen cell maximizes the train CI "
-        "lower bound and is then frozen for OOS.\n"
+        "buys YES (p <= 1-θ buys NO); hold to resolution. Fills use the "
+        "worse of the signal and next bar plus the tiered half-spread. Max "
+        "2 trades/event; min lifetime volume $10k. Grid below is fully "
+        "disclosed; the chosen cell maximizes the train CI lower bound and "
+        "is then frozen for OOS.\n"
     )
     fav_cells: dict[str, pd.DataFrame] = {}
     fav_params: dict[str, dict] = {}
