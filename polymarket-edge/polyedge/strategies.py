@@ -13,7 +13,13 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from .dataio import haircut_for_volume
+from .dataio import haircut_for_volume, price_series
+
+
+def _as_series(prices) -> dict:
+    if isinstance(prices, dict):
+        return prices
+    return price_series(prices)
 
 
 def _prep(markets: pd.DataFrame) -> pd.DataFrame:
@@ -55,15 +61,17 @@ def favorite_trades(
     settle_map = settle.set_index("market_id")["settle_t"].to_dict()
     end_map = meta["end_t"].to_dict()
 
-    px = prices[prices["market_id"].isin(meta.index)]
+    series = _as_series(prices)
     trades: list[dict] = []
-    for mid, g in px.groupby("market_id", sort=False):
+    for mid in meta.index:
+        if mid not in series:
+            continue
+        t_arr, p_arr = series[mid]
         row = meta.loc[mid]
         end_t, closed_t = row["end_t"], row["closed_t"]
         lo_t = end_t - window_days * 86400
         hard_stop = min(end_t, closed_t) if np.isfinite(closed_t) else end_t
         h = haircut_for_volume(np.array([row["volume"]]), spread)[0] * haircut_mult
-        t_arr, p_arr = g["t"].to_numpy(), g["p"].to_numpy()
         first_t = t_arr[0]
         for t, p in zip(t_arr, p_arr):
             if t < lo_t or t >= hard_stop:
@@ -116,14 +124,16 @@ def momentum_trades(
     end_map = meta["end_t"].to_dict()
     lb_s = lookback_h * 3600
 
-    px = prices[prices["market_id"].isin(meta.index)]
+    series = _as_series(prices)
     trades: list[dict] = []
-    for mid, g in px.groupby("market_id", sort=False):
+    for mid in meta.index:
+        if mid not in series:
+            continue
+        t_arr, p_arr = series[mid]
         row = meta.loc[mid]
         end_t, closed_t = row["end_t"], row["closed_t"]
         hard_stop = min(end_t, closed_t) if np.isfinite(closed_t) else end_t
         h = haircut_for_volume(np.array([row["volume"]]), spread)[0] * haircut_mult
-        t_arr, p_arr = g["t"].to_numpy(), g["p"].to_numpy()
         n = len(t_arr)
         j = 0
         for i in range(n):

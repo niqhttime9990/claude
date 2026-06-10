@@ -31,6 +31,7 @@ from polyedge.backtest import dedupe_per_event, evaluate, split_by_date, walk_fo
 from polyedge.calibration import calibration_table, edge_zones, flb_tests
 from polyedge.dataio import (
     build_settlement_table,
+    price_series,
     load_active_books,
     load_markets,
     load_prices,
@@ -51,8 +52,8 @@ def fig_calibration(binned: pd.DataFrame, horizon_label: str, out: Path) -> None
     ax.plot([0, 1], [0, 1], "k--", lw=1, label="perfect calibration")
     ax.errorbar(
         binned["mean_price"], binned["emp_rate"],
-        yerr=[binned["emp_rate"] - binned["wilson_lo"],
-              binned["wilson_hi"] - binned["emp_rate"]],
+        yerr=[(binned["emp_rate"] - binned["wilson_lo"]).clip(lower=0),
+              (binned["wilson_hi"] - binned["emp_rate"]).clip(lower=0)],
         fmt="o", ms=4, capsize=2, label="empirical (95% Wilson)",
     )
     ax.set_ylabel("empirical YES frequency")
@@ -106,6 +107,7 @@ def main() -> int:
     spread = spread_model(books, active)
 
     settle = build_settlement_table(markets, prices)
+    series = price_series(prices)
     n_res = int(markets["resolved_clean"].sum())
     data_through = pd.to_datetime(prices["t"].max(), unit="s")
     report.append("# Polymarket edge research report\n")
@@ -167,7 +169,7 @@ def main() -> int:
     for theta in (0.90, 0.93, 0.95, 0.97):
         for window in (1.0, 3.0, 7.0):
             for side in ("yes", "no", "both"):
-                t = favorite_trades(prices, markets, settle, spread,
+                t = favorite_trades(series, markets, settle, spread,
                                     theta=theta, window_days=window,
                                     side_mode=side)
                 fav_cells[f"fav θ={theta} W={window:g}d {side}"] = (
@@ -204,7 +206,7 @@ def main() -> int:
         side = fav_wf["chosen"].split()[-1]
         for mult, lab in [(0.0, "no costs"), (1.0, "1x half-spread"),
                           (2.0, "2x half-spread")]:
-            tr = favorite_trades(prices, markets, settle, spread, theta=theta,
+            tr = favorite_trades(series, markets, settle, spread, theta=theta,
                                  window_days=window, side_mode=side,
                                  haircut_mult=mult)
             _, te = split_by_date(tr, args.cutoff)
@@ -226,7 +228,7 @@ def main() -> int:
     for delta in (0.05, 0.10, 0.15):
         for direction in ("with", "against"):
             for hold, hl in ((None, "res"), (3.0, "3d"), (7.0, "7d")):
-                t = momentum_trades(prices, markets, settle, spread,
+                t = momentum_trades(series, markets, settle, spread,
                                     delta=delta, direction=direction,
                                     hold_days=hold)
                 mom_cells[f"mom δ={delta} {direction} hold={hl}"] = (

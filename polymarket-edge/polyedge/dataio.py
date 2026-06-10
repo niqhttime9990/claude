@@ -112,6 +112,15 @@ def snapshot_at_horizon(
     return snap.reset_index(drop=True)
 
 
+def price_series(prices: pd.DataFrame) -> dict[str, tuple[np.ndarray, np.ndarray]]:
+    """Per-market (t, p) arrays, computed once and shared across strategy
+    grid cells (the groupby is the hot path on multi-million-row panels)."""
+    out: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+    for mid, g in prices.groupby("market_id", sort=False):
+        out[mid] = (g["t"].to_numpy(dtype=float), g["p"].to_numpy(dtype=float))
+    return out
+
+
 def load_active_books(data_dir: str | Path) -> pd.DataFrame | None:
     p = Path(data_dir) / "active_books.parquet"
     if not p.exists():

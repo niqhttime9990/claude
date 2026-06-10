@@ -527,11 +527,26 @@ async def main() -> int:
             print(f"[manifest] markets: {manifest['markets']}")
 
             mkts = df_m.to_dict("records")
+
+            def lifetime_h(m: dict) -> float:
+                start = m.get("created_at") or m.get("start_date")
+                end = m.get("end_date")
+                try:
+                    s = pd.Timestamp(start)
+                    e = pd.Timestamp(end)
+                    return float((e - s).total_seconds() / 3600)
+                except (TypeError, ValueError):
+                    return 1e9  # unparseable dates: fetch to be safe
+
+            # Hourly up/down dust lives <24h and yields <=2 points at 12h
+            # fidelity; skip those histories (metadata is still kept).
+            mkts_hist = [m for m in mkts if lifetime_h(m) >= 24.0]
+            manifest["skipped_short_lived"] = len(mkts) - len(mkts_hist)
             manifest["hist_12h"] = await fetch_all_histories(
-                client, clob_pacer, mkts, 720, out_dir, "12h"
+                client, clob_pacer, mkts_hist, 720, out_dir, "12h"
             )
 
-            top = sorted(mkts, key=lambda r: -r["volume"])[: args.hourly_top]
+            top = sorted(mkts_hist, key=lambda r: -r["volume"])[: args.hourly_top]
             if await probe_fidelity(client, clob_pacer, top, 60):
                 manifest["hist_1h"] = await fetch_all_histories(
                     client, clob_pacer, top, 60, out_dir, "1h"
