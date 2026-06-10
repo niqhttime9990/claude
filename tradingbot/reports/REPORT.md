@@ -44,6 +44,23 @@ Real Sharpe 0.73 → **p = 0.000**.
 | Long-only risk parity (same engine) | 10.5% | 17.9% | 0.59 | -75.4% | 0.06 |
 | S&P 500 long, vol-targeted | 8.3% | 18.1% | 0.46 | -57.8% | 0.12 |
 
+## Presets vs the S&P 500 (common window 1982–2024)
+
+| preset | ann_return | ann_vol | sharpe | max_drawdown | oos_ann_return | oos_sharpe |
+|---|---|---|---|---|---|---|
+| S&P 500 futures 1x | 9.1% | 18.8% | 0.48 | -63.0% | 10.7% | 0.65 |
+| base | 14.4% | 19.3% | 0.74 | -47.3% | 5.6% | 0.35 |
+| aggressive | 21.5% | 29.0% | 0.74 | -63.1% | 8.3% | 0.35 |
+| stacked | 22.6% | 26.5% | 0.86 | -57.2% | 14.9% | 0.69 |
+
+Stacked-minus-S&P daily difference: **+14.6%/yr** full sample,
+**+6.1%/yr** out-of-sample (2015–2024);
+outperformance Sharpe 0.74,
+95% CI [0.44, 1.04],
+p(≤0) = 0.0000.
+
+![presets](figures/presets.png)
+
 ## Sleeves
 
 | sleeve | ann_return | ann_vol | sharpe | max_drawdown |

@@ -106,14 +106,23 @@ tradingbot/
 │   ├── stats.py       # block bootstrap, PSR/DSR, placebo tests
 │   ├── report.py      # figures + markdown report
 │   └── live.py        # target book -> integer contracts -> orders; paper broker
+├── simulator/
+│   ├── datafeed.py    # replay feed (pinned data) + live Yahoo feed
+│   ├── account.py     # daily-settlement paper futures account
+│   ├── controller.py  # replay/live controllers around the same pipeline
+│   ├── server.py      # local web server + JSON API
+│   └── dashboard_html.py  # embedded single-page UI
 ├── scripts/
 │   ├── fetch_data.py      # re-download the pinned snapshot
 │   ├── run_backtest.py    # quick summary
 │   ├── run_validation.py  # full statistical validation (writes reports/)
-│   └── run_live.py        # today's orders (dry-run / paper)
-├── data/              # committed snapshot (2.1 MB) + sha256 manifest
+│   ├── run_live.py        # today's orders (dry-run / paper)
+│   ├── run_simulator.py   # interactive dashboard (replay / live paper trading)
+│   └── run_simulator_exe.py  # entry point for the packaged .exe
+├── build_exe.bat      # one-command Windows .exe build (PyInstaller)
+├── data/              # committed snapshot (2.2 MB) + sha256 manifest
 ├── reports/           # generated: REPORT.md, results.json, figures/
-└── tests/             # incl. hard no-lookahead invariance tests
+└── tests/             # incl. no-lookahead and replay-fidelity tests
 ```
 
 ### Strategy, in one paragraph
@@ -285,6 +294,81 @@ the in-sample selection this repo exists to avoid, so the a priori 60/40
 design stands and both variants are reported. A defensible redesign would
 add the missing carry-rich asset classes, not delete the sleeve after
 peeking.
+
+## Beating the S&P 500 on average: presets
+
+A higher Sharpe at 20% vol does not automatically out-*return* a bull
+market — in 2015–2024 the base strategy made 5.5%/yr while S&P futures
+made 10.7%/yr. There are two honest levers for raising average return, and
+both are presets in `config.py` (run any of them with `--preset`):
+
+| preset (1982–2024, net) | ann. return | ann. vol | Sharpe | max DD | OOS ann. ret | OOS SR |
+|---|---|---|---|---|---|---|
+| S&P 500 futures 1x (benchmark) | 9.1% | 18.8% | 0.48 | −63% | 10.7% | 0.65 |
+| `base` (20% vol) | 14.4% | 19.3% | 0.74 | −47% | 5.6% | 0.35 |
+| `aggressive` (30% vol) | 21.5% | 29.0% | 0.74 | −63% | 8.3% | 0.35 |
+| **`stacked`** (100% S&P + overlay) | **22.6%** | 26.5% | **0.86** | −57% | **14.9%** | 0.69 |
+
+- **`aggressive`** is just more leverage: same Sharpe, ~1.5× the return
+  *and* ~1.5× the drawdown. Leverage is not an edge.
+- **`stacked`** is the defensible answer ("return stacking" / portable
+  alpha, the same construct as institutional products): hold 100% S&P
+  futures exposure *plus* the trend/carry overlay on the same capital —
+  futures margin makes both fit. Because the overlay is ~uncorrelated
+  (0.06) with equities, the combination earns the equity premium *and* the
+  overlay, with a *smaller* max drawdown than the S&P alone and a higher
+  Sharpe than either component.
+- Stacked-minus-S&P daily outperformance: **+14.6%/yr full sample,
+  +6.1%/yr out-of-sample 2015–2024** (the S&P's own best decade);
+  block-bootstrap p(≤0) < 10⁻⁴. That is "more than the S&P on average" in
+  the statistically meaningful sense — though it is S&P + overlay, so in an
+  equity crash it first falls *with* the market (2008: the overlay's gains
+  offset most but not all of the equity leg).
+
+![presets](reports/figures/presets.png)
+
+## Interactive simulator (watch it trade)
+
+`scripts/run_simulator.py` starts a local web dashboard (dark-theme
+equity/benchmark chart, live KPI cards, open positions with forecasts,
+asset-class exposure, fill feed) and a paper account — $10M by default —
+with exact daily-settlement futures accounting (variation margin,
+half-spread + commission + roll costs, integer contracts):
+
+```bash
+python scripts/run_simulator.py                       # replay 1982→2024 at 25 days/s
+python scripts/run_simulator.py --start 2020-01-01 --preset stacked
+python scripts/run_simulator.py --mode live           # real-time paper trading
+```
+
+- **Replay mode** steps through the pinned history bar-by-bar at an
+  adjustable speed (pause/resume/speed slider). A regression test pins the
+  replay to the validated backtest: daily-return correlation > 0.97, mean
+  return gap < 2%/yr — what you watch is the audited strategy, not a
+  separate implementation.
+- **Live mode** (your machine, internet required) pulls delayed Yahoo
+  Finance futures quotes every minute, marks the book in real time,
+  settles and rebalances when a trading day completes, and persists the
+  account across restarts (`ctabot_sim_state.json`). Live quotes are
+  continuous front-month series with no curve data: the carry sleeve is
+  off, and quote series jump at contract rolls (disclosed in the UI).
+  No real orders are sent anywhere, ever.
+
+### Building the Windows .exe
+
+A Windows binary cannot be cross-compiled from this repo's CI environment,
+so the build is one command on your machine:
+
+```bat
+cd tradingbot
+build_exe.bat
+```
+
+This produces `dist\ctabot-simulator.exe` (PyInstaller one-file).
+Double-click → live paper trading with $10M and the dashboard opens in
+your browser. `ctabot-simulator.exe replay` replays history if you copy
+the repo's `data\` folder next to the exe; a second argument overrides
+capital, e.g. `ctabot-simulator.exe live 50000000`.
 
 ## References
 

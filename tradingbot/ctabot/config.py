@@ -70,12 +70,32 @@ class StrategyConfig:
     # --- Calendar ---
     trading_days_per_year: int = 256    # Carver's convention
 
+    # --- Return stacking ---
+    # Constant additional long S&P 500 notional (fraction of capital) laid
+    # on top of the strategy ("portable alpha"). 1.0 = full equity-market
+    # exposure plus the overlay; pays the same roll/trade costs.
+    equity_overlay: float = 0.0
+    equity_overlay_instrument: str = "SP500"
+
     # --- Sample split: design frozen on data <= insample_end; later data
     # is genuinely out-of-sample for every choice made in this repo. ---
     insample_end: str = "2014-12-31"
 
 
 DEFAULT = StrategyConfig()
+
+# Presets answering different objectives. Sharpe is roughly invariant to
+# vol_target (it just scales positions); average return is not.
+#   base       — the validated 20%-vol strategy.
+#   aggressive — same signals, 30% vol target. Higher mean, deeper drawdowns.
+#   stacked    — 100% S&P futures exposure PLUS the overlay at 20% vol:
+#                collects the equity risk premium and the (near-uncorrelated)
+#                trend/carry premium on the same capital.
+PRESETS: dict[str, StrategyConfig] = {
+    "base": StrategyConfig(),
+    "aggressive": StrategyConfig(vol_target_annual=0.30),
+    "stacked": StrategyConfig(equity_overlay=1.0),
+}
 
 
 @dataclass(frozen=True)

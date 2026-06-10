@@ -115,6 +115,11 @@ def run_strategy(data: dict[str, pd.DataFrame], meta: pd.DataFrame,
     pos, avg_scale, idm = target_positions(forecast, ann_vol, returns, class_of, cfg)
     pos = buffered_positions(pos, avg_scale, cfg.position_buffer)
 
+    if cfg.equity_overlay != 0.0 and cfg.equity_overlay_instrument in pos.columns:
+        inst = cfg.equity_overlay_instrument
+        live_mask = returns[inst].notna().cumsum() > 0
+        pos[inst] = pos[inst].fillna(0.0) + cfg.equity_overlay * live_mask
+
     cost_frac = per_trade_cost_frac(data, meta, cfg)
     result = run_engine(pos, returns, cost_frac, meta["rolls_per_year"], cfg)
     result.forecast = forecast

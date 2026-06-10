@@ -21,8 +21,8 @@ sys.path.insert(0, str(ROOT))
 from ctabot import report as rpt
 from ctabot import stats as st
 from ctabot.backtest import run_strategy
-from ctabot.config import PATHS, UNIVERSE, StrategyConfig
-from ctabot.data import load_universe
+from ctabot.config import PATHS, PRESETS, UNIVERSE, StrategyConfig
+from ctabot.data import load_universe, pct_returns
 
 FIG = ROOT / PATHS.figures_dir
 REP = ROOT / PATHS.reports_dir
@@ -69,6 +69,24 @@ def main() -> None:  # noqa: PLR0915 - orchestration script
     for name, bnet in benchmarks.items():
         results["benchmarks"][name] = st.summary(bnet.loc["1975":])
         results["benchmarks"][name]["corr_to_strategy"] = float(net.corr(bnet))
+
+    print("== presets vs S&P 500 ==")
+    spx_1x = pct_returns(data["SP500"])
+    preset_nets: dict[str, pd.Series] = {"S&P 500 futures 1x": spx_1x}
+    for pname, pcfg in PRESETS.items():
+        preset_nets[pname] = run_strategy(data, meta, pcfg).net
+    results["presets"] = {}
+    for pname, pnet in preset_nets.items():
+        w = pnet.loc["1982":]  # common window: SP500 data starts 1982
+        results["presets"][pname] = st.summary(w)
+        results["presets"][pname]["oos_ann_return"] = float(w.loc[is_end:].mean() * 256)
+        results["presets"][pname]["oos_sharpe"] = st.sharpe(w.loc[is_end:])
+    diff = (preset_nets["stacked"] - spx_1x).dropna().loc["1982":]
+    results["stacked_minus_spx"] = {
+        "ann_outperformance_full": float(diff.mean() * 256),
+        "ann_outperformance_oos": float(diff.loc[is_end:].mean() * 256),
+        "bootstrap": st.stationary_bootstrap_sharpe(diff),
+    }
 
     print("== sleeves ==")
     trend_cfg = dataclasses.replace(cfg, trend_weight=1.0, carry_weight=0.0)
@@ -167,6 +185,11 @@ def main() -> None:  # noqa: PLR0915 - orchestration script
     FIG.mkdir(parents=True, exist_ok=True)
     rpt.fig_equity({"Trend+Carry strategy": net, **{k: v.loc["1975":] for k, v in benchmarks.items()}},
                    FIG / "equity.png")
+    rpt.fig_equity({"stacked (S&P + overlay)": preset_nets["stacked"].loc["1982":],
+                    "aggressive (30% vol)": preset_nets["aggressive"].loc["1982":],
+                    "base (20% vol)": preset_nets["base"].loc["1982":],
+                    "S&P 500 futures 1x": spx_1x.loc["1982":]},
+                   FIG / "presets.png")
     rpt.fig_rolling_sharpe(net, FIG / "rolling_sharpe.png")
     rpt.fig_yearly_returns(net, FIG / "yearly_returns.png")
     rpt.fig_placebo(results["placebo"], FIG / "placebo.png")
@@ -229,7 +252,20 @@ def write_report(res: dict) -> None:
     bcols = ["benchmark", "ann_return", "ann_vol", "sharpe", "max_drawdown", "corr_to_strategy"]
     bfmt = {**fmt, "corr_to_strategy": "{:.2f}"}
     brows = [{"benchmark": k, **v} for k, v in res["benchmarks"].items()]
+    prows = [{"preset": k, **v} for k, v in res["presets"].items()]
+    pcols = ["preset", "ann_return", "ann_vol", "sharpe", "max_drawdown",
+             "oos_ann_return", "oos_sharpe"]
+    pfmt = {**fmt, "oos_ann_return": "{:.1%}", "oos_sharpe": "{:.2f}"}
+    sm = res["stacked_minus_spx"]
     lines += [rpt.md_table(brows, bcols, bfmt), "",
+              "## Presets vs the S&P 500 (common window 1982–2024)", "",
+              rpt.md_table(prows, pcols, pfmt), "",
+              f"Stacked-minus-S&P daily difference: **{sm['ann_outperformance_full']:+.1%}/yr** full sample,",
+              f"**{sm['ann_outperformance_oos']:+.1%}/yr** out-of-sample (2015–2024);",
+              f"outperformance Sharpe {sm['bootstrap']['sharpe']:.2f},",
+              f"95% CI [{sm['bootstrap']['ci_2.5']:.2f}, {sm['bootstrap']['ci_97.5']:.2f}],",
+              f"p(≤0) = {sm['bootstrap']['p_value_sr_le_0']:.4f}.", "",
+              "![presets](figures/presets.png)", "",
               "## Sleeves", "",
               rpt.md_table([
                   {"sleeve": "trend only", **res["sleeves"]["trend_only"]},
