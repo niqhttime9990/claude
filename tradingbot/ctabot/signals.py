@@ -103,8 +103,13 @@ def combined_forecast(data: dict[str, pd.DataFrame], cfg: StrategyConfig,
     frames = []
     weight_frames = []
     for rule, frame in scaled.items():
-        frames.append(frame * weights[rule])
-        weight_frames.append(frame.notna() * weights[rule])
+        w = weights[rule]
+        if w == 0.0:
+            continue
+        # NaN forecasts contribute nothing rather than poisoning the sum
+        # (live feeds have no curve data: the carry frame is entirely NaN).
+        frames.append((frame * w).fillna(0.0))
+        weight_frames.append(frame.notna() * w)
     total = sum(frames[1:], frames[0])
     live_weight = sum(weight_frames[1:], weight_frames[0]).replace(0.0, np.nan)
     combined = (total / live_weight) * cfg.fdm

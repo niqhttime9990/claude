@@ -141,9 +141,17 @@ class StubLiveFeed:
     mode = "live"
 
     def __init__(self, end="2010-12-31"):
+        import numpy as np
         inner = ReplayFeed(start="2000-01-01", end=end)
-        self._data = {k: df.loc[:end] for k, df in inner.data.items()
-                      if len(df.loc[:end]) > 300}
+        self._data = {}
+        for k, df in inner.data.items():
+            cut = df.loc[:end].copy()
+            if len(cut) <= 300:
+                continue
+            # faithful to YahooFeed: continuous quotes only, no curve data
+            cut["adj"] = cut["price"]
+            cut[["carry_price", "price_contract", "carry_contract"]] = np.nan
+            self._data[k] = cut
         self._specs = inner.specs()
         self._bar = None
 

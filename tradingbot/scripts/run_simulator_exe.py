@@ -20,9 +20,12 @@ from simulator.server import build, serve
 
 
 def main() -> None:
+    import ctabot
+
     mode = "replay" if (len(sys.argv) > 1 and sys.argv[1] == "replay") else "live"
     capital = float(sys.argv[2]) if len(sys.argv) > 2 else 10_000_000
-    print(f"ctabot simulator — {mode} mode, ${capital:,.0f} paper account")
+    print(f"ctabot simulator v{ctabot.__version__} — {mode} mode, "
+          f"${capital:,.0f} paper account")
     if mode == "live":
         print("fetching live data from Yahoo Finance (first load ~30s)...")
     controller = build(mode, "base", capital,

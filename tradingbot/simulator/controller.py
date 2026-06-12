@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 
+from ctabot import __version__ as _VERSION
 from ctabot.backtest import run_strategy
 from ctabot.config import PRESETS, StrategyConfig
 
@@ -169,6 +170,7 @@ class BaseController:
 
             return {
                 "meta": {"mode": self.feed.mode, "preset": self.preset,
+                         "version": _VERSION,
                          "paused": self.paused, "speed": self.speed,
                          "finished": self.finished, "error": self.last_error,
                          "progress": self.feed.progress(),

@@ -102,7 +102,7 @@ function kpiCard(label,value,klass="",sub=""){
 
 function render(s){
   const k=s.kpis, m=s.meta;
-  $("mode").textContent=m.mode.toUpperCase()+" · "+m.preset;
+  $("mode").textContent=m.mode.toUpperCase()+" · "+m.preset+(m.version?" · v"+m.version:"");
   $("mode").className="badge "+m.mode;
   const prog=m.progress||{};
   $("date").textContent=(prog.date?("as of "+prog.date):"warming up")+

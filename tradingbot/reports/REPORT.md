@@ -12,7 +12,7 @@ execution lag. See README for methodology and caveats.
 | in-sample (≤ 2014-12-31) | 1975-01-02 | 2014-12-31 | 16.2% | 19.9% | 0.82 | 1.10 | -47.3% | -0.18 | 61% |
 | out-of-sample (after) | 2015-01-01 | 2024-03-28 | 5.5% | 15.9% | 0.35 | 0.43 | -29.3% | 0.09 | 58% |
 
-- Gross (pre-cost) full-sample Sharpe: **0.78**; cost drag 0.53%/yr trading + 0.40%/yr rolling.
+- Gross (pre-cost) full-sample Sharpe: **0.78**; cost drag 0.54%/yr trading + 0.40%/yr rolling.
 - Average gross notional exposure since 1990: **4.8x** capital.
 
 ![equity](figures/equity.png)
@@ -29,8 +29,8 @@ execution lag. See README for methodology and caveats.
 
 Placebo test: 200 runs with each instrument's forecast circularly
 time-shifted by a random ≥1y offset, through the identical sizing and cost engine.
-Null Sharpe: mean 0.22 ± 0.14,
-95th pct 0.46, max 0.57.
+Null Sharpe: mean 0.21 ± 0.14,
+95th pct 0.43, max 0.60.
 Real Sharpe 0.73 → **p = 0.000**.
 
 ![placebo](figures/placebo.png)
@@ -112,10 +112,10 @@ Annualised net return contribution and Sharpe by asset class:
 
 | class | ann_return | sharpe |
 |---|---|---|
-| Ags | 3.58% | 0.52 |
+| Ags | 3.65% | 0.53 |
 | Bond | 4.94% | 0.58 |
 | Equity | 1.65% | 0.20 |
-| Metals | 1.67% | 0.24 |
+| Metals | 1.64% | 0.23 |
 | OilGas | 2.70% | 0.34 |
 
 ![attribution](figures/attribution.png)
