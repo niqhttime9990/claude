@@ -1,0 +1,251 @@
+{
+  "source_repo": "robcarver17/pysystemtrade",
+  "source_sha": "883c8681cf880d83acad5c39b842403a8eac5676",
+  "fetched_at": "2026-06-10T22:18:13.234694+00:00",
+  "instruments": {
+    "SP500": {
+      "adjusted_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/adjusted_prices_csv/SP500.csv",
+      "adjusted_sha256": "03b350fa2ca647d658977e3d772d02535a5396ee8652a1c80722516705cb7c7e",
+      "multiple_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/multiple_prices_csv/SP500.csv",
+      "multiple_sha256": "3373bd1e83a6d1297e7e56f543fe2df1397d9bfb67b276a7befbaa5c8b5aa670",
+      "rows": 10713,
+      "start": "1982-09-14",
+      "end": "2024-03-28",
+      "min_contract_price": 119.35
+    },
+    "NASDAQ": {
+      "adjusted_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/adjusted_prices_csv/NASDAQ.csv",
+      "adjusted_sha256": "56e8c2077ede58a4ca67e46cfcfd8c8b2846962c6d2c760257fed2fbb721ba52",
+      "multiple_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/multiple_prices_csv/NASDAQ.csv",
+      "multiple_sha256": "d865b923c091f140a984f61746b4bd59f88bada0c548d4bbfc2be11c2767972c",
+      "rows": 6288,
+      "start": "1999-12-14",
+      "end": "2024-03-28",
+      "min_contract_price": 809.5
+    },
+    "DOW": {
+      "adjusted_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/adjusted_prices_csv/DOW.csv",
+      "adjusted_sha256": "2dff84aa734b0dacc718cc1780d50f312b92aa9f3037d5787fc05526747179b8",
+      "multiple_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/multiple_prices_csv/DOW.csv",
+      "multiple_sha256": "f9ba90e636f2ef9f557907c593416a0c96921b662472e53143d20c26522ce4d4",
+      "rows": 6186,
+      "start": "2002-06-12",
+      "end": "2024-03-28",
+      "min_contract_price": 6528.0
+    },
+    "EUROSTX": {
+      "adjusted_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/adjusted_prices_csv/EUROSTX.csv",
+      "adjusted_sha256": "1427cf6e445788397cd4ce345679d936137ac60a436d0e18611ef5e125fd071a",
+      "multiple_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/multiple_prices_csv/EUROSTX.csv",
+      "multiple_sha256": "825a76c932b09cc54acd1f9797655c51c0535ed834f88bd285f7bf4d28d66757",
+      "rows": 2466,
+      "start": "2014-03-13",
+      "end": "2024-03-28",
+      "min_contract_price": 2314.0
+    },
+    "US2": {
+      "adjusted_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/adjusted_prices_csv/US2.csv",
+      "adjusted_sha256": "c1e75baf9222c1c9f8b4d9ba69e9115f080b078720fc5f5d54382c1bf804afc7",
+      "multiple_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/multiple_prices_csv/US2.csv",
+      "multiple_sha256": "a0ad3b69e0afe568236f553f700b8474b364ec537a087b45244e3f6d87f1c303",
+      "rows": 6193,
+      "start": "2000-03-02",
+      "end": "2024-03-28",
+      "min_contract_price": 98.234375
+    },
+    "US5": {
+      "adjusted_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/adjusted_prices_csv/US5.csv",
+      "adjusted_sha256": "8f792ef2456ae99ca21e3a37d7d88b3ba77f1fc50b63f03abe6ca3325fde12a9",
+      "multiple_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/multiple_prices_csv/US5.csv",
+      "multiple_sha256": "362700c4d41be008af0ea25da659a3b7a9420c58a2374676db51d76ce23498fd",
+      "rows": 8859,
+      "start": "1989-05-31",
+      "end": "2024-03-28",
+      "min_contract_price": 95.625
+    },
+    "US10": {
+      "adjusted_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/adjusted_prices_csv/US10.csv",
+      "adjusted_sha256": "09fffacf7d7b1ce79fac6b6e19283c13d06526c5e99f05f9a500c188ce969888",
+      "multiple_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/multiple_prices_csv/US10.csv",
+      "multiple_sha256": "bfe2cb8e457709261d5e4dc2578d73a8c36f814e4d109db15787a676125391b8",
+      "rows": 10559,
+      "start": "1982-08-30",
+      "end": "2024-03-28",
+      "min_contract_price": 70.1875
+    },
+    "US30": {
+      "adjusted_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/adjusted_prices_csv/US30.csv",
+      "adjusted_sha256": "fc50b82bee87ec78cbb402b2282a2022497c2dfd4f3a56d37de72c8452c51d56",
+      "multiple_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/multiple_prices_csv/US30.csv",
+      "multiple_sha256": "5d7bb19ad6381874b9a84304821d1dc4281986de96c058732ea47df1c008554b",
+      "rows": 4157,
+      "start": "2010-03-03",
+      "end": "2024-03-28",
+      "min_contract_price": 110.59375
+    },
+    "BUND": {
+      "adjusted_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/adjusted_prices_csv/BUND.csv",
+      "adjusted_sha256": "ee0602bfabc3e8aaf2d34a5772c7b5aae8be765e9285ccef51a136235fb47beb",
+      "multiple_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/multiple_prices_csv/BUND.csv",
+      "multiple_sha256": "73814080f7f3558398ab979bf09550c2a6f67a134ee030b31594e451e552cc25",
+      "rows": 4474,
+      "start": "2006-12-01",
+      "end": "2024-03-28",
+      "min_contract_price": 109.74
+    },
+    "GOLD": {
+      "adjusted_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/adjusted_prices_csv/GOLD.csv",
+      "adjusted_sha256": "fc85606ff457b752fbce4d73d606bc19dbdd405c5fd8b6b3327e7f3d2f8bc9ae",
+      "multiple_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/multiple_prices_csv/GOLD.csv",
+      "multiple_sha256": "5e02e932c5c17aa7e5807e942866a6a0f6f867c1bdca6698acf3609d05af6bdd",
+      "rows": 12400,
+      "start": "1975-04-01",
+      "end": "2024-03-28",
+      "min_contract_price": 102.4
+    },
+    "SILVER": {
+      "adjusted_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/adjusted_prices_csv/SILVER.csv",
+      "adjusted_sha256": "5e2a47ea5f8464596a297a48de5ba4a860a96ddf1ae90cc15cb8186723cd24ce",
+      "multiple_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/multiple_prices_csv/SILVER.csv",
+      "multiple_sha256": "28cfb68f999378d35e53291debf0b818b3912cf70056063547e582f9c3731b04",
+      "rows": 14241,
+      "start": "1970-06-15",
+      "end": "2024-03-28",
+      "min_contract_price": 1.291
+    },
+    "COPPER": {
+      "adjusted_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/adjusted_prices_csv/COPPER.csv",
+      "adjusted_sha256": "2944c5130d66043f871525bc4091eb08c5101db338c013244c7ddb5533b3537a",
+      "multiple_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/multiple_prices_csv/COPPER.csv",
+      "multiple_sha256": "8c31c285cb11f85d08097398c3babe5a87ec555c0cbebf7b1cce9456ed71a2fb",
+      "rows": 7622,
+      "start": "1995-09-01",
+      "end": "2024-03-28",
+      "min_contract_price": 0.606
+    },
+    "PLAT": {
+      "adjusted_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/adjusted_prices_csv/PLAT.csv",
+      "adjusted_sha256": "92c7145f56db7c08da161c3c144c39aa99126e3777e09d12a79066581ff53ec0",
+      "multiple_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/multiple_prices_csv/PLAT.csv",
+      "multiple_sha256": "c55f8e40142ba7260b27602a7e6474abeb3b1541f34b844d72d6b13a86196bd3",
+      "rows": 13636,
+      "start": "1970-06-30",
+      "end": "2024-03-28",
+      "min_contract_price": 96.9
+    },
+    "CRUDE_W": {
+      "adjusted_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/adjusted_prices_csv/CRUDE_W.csv",
+      "adjusted_sha256": "10dcfbdd9ee3f9757cd1eaa4e45f62f33f0e405b7130327ca5cfd8633c87646c",
+      "multiple_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/multiple_prices_csv/CRUDE_W.csv",
+      "multiple_sha256": "64a8c9f46998830eb242695d9d519f2547d20820d222b2c127ebd71f213958d1",
+      "rows": 8604,
+      "start": "1990-10-16",
+      "end": "2024-03-28",
+      "min_contract_price": 12.58
+    },
+    "BRENT_W": {
+      "adjusted_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/adjusted_prices_csv/BRENT_W.csv",
+      "adjusted_sha256": "f30b70bace00a19237e45eb1f3f43b11be8d6646556fe247fbf87ab6a91156af",
+      "multiple_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/multiple_prices_csv/BRENT_W.csv",
+      "multiple_sha256": "40725d00c7074ebac6a1249acd179238b78c492b3bc82c3f78c854cc97061cb7",
+      "rows": 9438,
+      "start": "1989-08-11",
+      "end": "2024-03-28",
+      "min_contract_price": 9.91
+    },
+    "GAS_US": {
+      "adjusted_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/adjusted_prices_csv/GAS_US.csv",
+      "adjusted_sha256": "73d3adbc85d8249a99df659bf8c214a8b235cb2b763c7bfe50b2236268393cfd",
+      "multiple_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/multiple_prices_csv/GAS_US.csv",
+      "multiple_sha256": "8d1b2ad71db68931ace326244f3527ea893a63876e4c3eb21709ed696f1da7c6",
+      "rows": 8536,
+      "start": "1990-07-26",
+      "end": "2024-03-28",
+      "min_contract_price": 1.1
+    },
+    "HEATOIL": {
+      "adjusted_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/adjusted_prices_csv/HEATOIL.csv",
+      "adjusted_sha256": "794c6ea0ad64a4e23c782ec11f859c4dbfe5a09d9847a1e41c1cf0fc9734532c",
+      "multiple_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/multiple_prices_csv/HEATOIL.csv",
+      "multiple_sha256": "7ec8e0d1a69927e58a990f9f05f4e1f07ea53dd6a28b70a5bc7b844888e414da",
+      "rows": 11614,
+      "start": "1980-02-19",
+      "end": "2024-03-28",
+      "min_contract_price": 0.3076
+    },
+    "CORN": {
+      "adjusted_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/adjusted_prices_csv/CORN.csv",
+      "adjusted_sha256": "f8b59d6fc0a75cd016a42ec70964110a9266f56eba3b40e52e89445bc55fd3f8",
+      "multiple_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/multiple_prices_csv/CORN.csv",
+      "multiple_sha256": "47183abccaa9e260e2c934acab3819ee0d4edcaf3fa7fc0c4a96abd933452e1c",
+      "rows": 13022,
+      "start": "1972-10-18",
+      "end": "2024-03-28",
+      "min_contract_price": 132.25
+    },
+    "WHEAT": {
+      "adjusted_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/adjusted_prices_csv/WHEAT.csv",
+      "adjusted_sha256": "8dd359d49569e157e89690cf46f9d1b00132d6be379516b72bdd5bf767f74ad6",
+      "multiple_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/multiple_prices_csv/WHEAT.csv",
+      "multiple_sha256": "a038800ee43cc86d30c0cf2989225f5190ebd9a2499dd10bca83528703ab912e",
+      "rows": 12752,
+      "start": "1973-12-19",
+      "end": "2024-03-28",
+      "min_contract_price": 225.5
+    },
+    "SOYBEAN": {
+      "adjusted_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/adjusted_prices_csv/SOYBEAN.csv",
+      "adjusted_sha256": "a49d86c4525892c5872470299bdae9ea223483a3eaa58564773f956baaaed016",
+      "multiple_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/multiple_prices_csv/SOYBEAN.csv",
+      "multiple_sha256": "911a09de70eca193a756bf88a12eca98eb195a248f3007ade5573c029f0b1bf4",
+      "rows": 9703,
+      "start": "1985-09-20",
+      "end": "2024-03-28",
+      "min_contract_price": 411.5
+    },
+    "SUGAR11": {
+      "adjusted_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/adjusted_prices_csv/SUGAR11.csv",
+      "adjusted_sha256": "135750af247587cabcc50ef2240bf74311ce30e8499d6c821db252648e08bac6",
+      "multiple_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/multiple_prices_csv/SUGAR11.csv",
+      "multiple_sha256": "a6d626bd104d15b782a0cc9a0b5ecd7467e3068cae0e9a36970e6abdab429258",
+      "rows": 13543,
+      "start": "1970-02-16",
+      "end": "2024-03-28",
+      "min_contract_price": 2.79
+    },
+    "COFFEE": {
+      "adjusted_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/adjusted_prices_csv/COFFEE.csv",
+      "adjusted_sha256": "db79c35ac8a2e338c5efc400d49a0deb650afd88aee97b57fa11c6f8be63ffd7",
+      "multiple_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/multiple_prices_csv/COFFEE.csv",
+      "multiple_sha256": "3252a6b89fc32187ac1a427cd7ba99f7c65d64e3e8e5a03ca58aca9f6ff40264",
+      "rows": 4309,
+      "start": "2007-02-20",
+      "end": "2024-03-28",
+      "min_contract_price": 89.64999999999999
+    },
+    "LIVECOW": {
+      "adjusted_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/adjusted_prices_csv/LIVECOW.csv",
+      "adjusted_sha256": "07262d299b52b16c44a5aa14f417901d13d84a52c2de5ef0fea3f7a94cf7130c",
+      "multiple_url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/multiple_prices_csv/LIVECOW.csv",
+      "multiple_sha256": "6ce89008d010338e9779e6c31d83de150669284903ca4671edd3a49cc016151a",
+      "rows": 13192,
+      "start": "1971-10-21",
+      "end": "2024-03-28",
+      "min_contract_price": 30.55
+    }
+  },
+  "configs": {
+    "instrumentconfig": {
+      "url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/csvconfig/instrumentconfig.csv",
+      "sha256": "33d4cecb6eacebf8400e23727036b28cfead50b7c74030f28487e0c119a5776b"
+    },
+    "spreadcosts": {
+      "url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/csvconfig/spreadcosts.csv",
+      "sha256": "a3458c27842b0ff1057c565e7d067f1db7ced9ee9084643185abadd383d87175"
+    },
+    "rollconfig": {
+      "url": "https://raw.githubusercontent.com/robcarver17/pysystemtrade/883c8681cf880d83acad5c39b842403a8eac5676/data/futures/csvconfig/rollconfig.csv",
+      "sha256": "8c752d19cd6ce9f512caa888189a9264793a98f68d99791fe05b4d7f93485422"
+    }
+  }
+}

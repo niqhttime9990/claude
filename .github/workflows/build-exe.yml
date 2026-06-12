@@ -1,0 +1,70 @@
+name: build-simulator-exe
+
+on:
+  push:
+    branches: ["claude/peaceful-pascal-hakzas"]
+    paths: ["tradingbot/**", ".github/workflows/build-exe.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: tradingbot
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller yfinance
+
+      - name: Run test suite
+        run: python -m pytest tests/ -q
+
+      - name: Build exe
+        run: >
+          pyinstaller --onefile --name ctabot-simulator --paths .
+          --exclude-module matplotlib --exclude-module scipy
+          --hidden-import simulator --hidden-import ctabot
+          --collect-submodules yfinance
+          scripts/run_simulator_exe.py
+
+      - name: Package zip (exe + data for replay + readme)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory package | Out-Null
+          Copy-Item dist/ctabot-simulator.exe package/
+          Copy-Item WINDOWS_README.txt package/README.txt
+          Copy-Item -Recurse data package/data
+          Compress-Archive -Path package/* -DestinationPath ctabot-simulator-win64.zip
+
+      - name: Upload artifact (backup download)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctabot-simulator-win64
+          path: tradingbot/ctabot-simulator-win64.zip
+
+      - name: Publish release (rolling tag simulator-latest)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create simulator-latest \
+            --title "ctabot simulator (Windows)" \
+            --notes "Paper-trading simulator built by CI from $GITHUB_SHA.
+
+          Download ctabot-simulator-win64.zip, unzip, read README.txt, run ctabot-simulator.exe.
+          Paper money only - no real orders are ever sent. Unsigned binary: Windows SmartScreen
+          will warn on first run (More info -> Run anyway), or build from source with build_exe.bat." \
+            --target "$GITHUB_SHA" 2>/dev/null || true
+          gh release upload simulator-latest \
+            ctabot-simulator-win64.zip dist/ctabot-simulator.exe --clobber
