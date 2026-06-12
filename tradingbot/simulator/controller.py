@@ -201,8 +201,7 @@ class ReplayController(BaseController):
     def __init__(self, feed, account: PaperAccount, preset: str = "base"):
         super().__init__(feed, account, preset)
         res = run_strategy(feed.data, feed.meta, self.cfg)
-        lag = 1 + self.cfg.execution_lag_days
-        self.decided = res.held.shift(-lag)        # decision rows, by decision date
+        self.decided = res.decided                 # decision rows, by decision date
         self.forecast = res.forecast
 
     def step(self) -> bool:
@@ -235,6 +234,20 @@ class LiveController(BaseController):
         import dataclasses
         self.cfg = dataclasses.replace(self.cfg, trend_weight=1.0, carry_weight=0.0)
         self._meta = self._build_meta()
+        # Fresh account: deploy immediately from the latest completed bar's
+        # decision (what the strategy would hold today), instead of sitting
+        # flat until the first day rolls. Resumed accounts keep positions.
+        if not self.account.positions and not self.account.fills:
+            self._recompute_targets()
+
+    def _recompute_targets(self) -> None:
+        res = run_strategy(self.feed.history(), self._meta, self.cfg)
+        decided = res.decided.dropna(how="all")
+        if len(decided):
+            row = decided.iloc[-1]
+            self.pending_targets = {k: v for k, v in row.items() if pd.notna(v)}
+            frow = res.forecast.loc[decided.index[-1]]
+            self.last_forecast = {k: float(v) for k, v in frow.items() if pd.notna(v)}
 
     def _build_meta(self) -> pd.DataFrame:
         rows = []
@@ -259,15 +272,7 @@ class LiveController(BaseController):
                     date, settle_closes, _px = bar
                     fx = self.feed.fx_to_usd()
                     self.day_pnl = self.account.settle(settle_closes, fx, str(date.date()))
-                    res = run_strategy(self.feed.history(), self._meta, self.cfg)
-                    lag = 1 + self.cfg.execution_lag_days
-                    decided = res.held.shift(-lag)
-                    if date in decided.index:
-                        row = decided.loc[date]
-                        self.pending_targets = {k: v for k, v in row.items() if pd.notna(v)}
-                        frow = res.forecast.loc[date]
-                        self.last_forecast = {k: float(v) for k, v in frow.items()
-                                              if pd.notna(v)}
+                    self._recompute_targets()
                 self.account.snapshot(datetime.now(timezone.utc).isoformat(),
                                       self.feed.quotes_settle(), self.feed.fx_to_usd(),
                                       self._bench_equity(self.feed.quotes_settle(),

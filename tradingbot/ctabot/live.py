@@ -89,9 +89,7 @@ def compute_targets(data: dict[str, pd.DataFrame], meta: pd.DataFrame,
         if cur not in fx_to_usd or np.isnan(price):
             continue
         contract_value = price * meta.loc[name, "point_size"] * fx_to_usd[cur]
-        # res.held already includes the execution lag shift; the *decision*
-        # row is the unshifted last target, i.e. shift back.
-        notional_frac = res.held[name].shift(-(1 + cfg.execution_lag_days)).asof(asof)
+        notional_frac = res.decided[name].asof(asof)
         forecast = res.forecast[name].asof(asof)
         target_contracts = notional_frac * capital_usd / contract_value
         rows[name] = {

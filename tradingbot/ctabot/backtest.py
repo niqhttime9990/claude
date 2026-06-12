@@ -44,6 +44,10 @@ class BacktestResult:
     forecast: pd.DataFrame
     rule_forecasts: dict = field(default_factory=dict)
     idm: pd.Series | None = None
+    # Decision series: target at index t uses information up to t's close
+    # and is executed 1+lag bars later. The freshest tradeable target lives
+    # here — it cannot be recovered by back-shifting `held`.
+    decided: pd.DataFrame | None = None
 
     def equity(self) -> pd.Series:
         return (1.0 + self.net.fillna(0.0)).cumprod()
@@ -125,4 +129,5 @@ def run_strategy(data: dict[str, pd.DataFrame], meta: pd.DataFrame,
     result.forecast = forecast
     result.rule_forecasts = rule_forecasts
     result.idm = idm
+    result.decided = pos
     return result

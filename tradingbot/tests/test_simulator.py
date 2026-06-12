@@ -135,6 +135,75 @@ def test_server_api_roundtrip():
         httpd.shutdown()
 
 
+class StubLiveFeed:
+    """Live-feed interface backed by the pinned snapshot (no network)."""
+
+    mode = "live"
+
+    def __init__(self, end="2010-12-31"):
+        inner = ReplayFeed(start="2000-01-01", end=end)
+        self._data = {k: df.loc[:end] for k, df in inner.data.items()
+                      if len(df.loc[:end]) > 300}
+        self._specs = inner.specs()
+        self._bar = None
+
+    def specs(self):
+        return self._specs
+
+    def refresh(self):
+        pass
+
+    def history(self):
+        return self._data
+
+    def next_bar(self):
+        bar, self._bar = self._bar, None
+        return bar
+
+    def quotes(self):
+        return {n: float(df["price"].iloc[-1]) for n, df in self._data.items()}
+
+    def quotes_settle(self):
+        return {n: float(df["adj"].iloc[-1]) for n, df in self._data.items()}
+
+    def fx_to_usd(self):
+        return {"USD": 1.0, "EUR": 1.0}
+
+    def progress(self):
+        return {"date": "2010-12-31"}
+
+
+def test_live_controller_deploys_immediately():
+    """A fresh live account must put positions on at the first poll, using
+    the latest completed bar's decision — not wait for the next day."""
+    from simulator.controller import LiveController
+
+    feed = StubLiveFeed()
+    acct = PaperAccount(10_000_000, feed.specs())
+    ctl = LiveController(feed, acct, preset="base")
+    assert ctl.pending_targets, "fresh account should have targets queued at init"
+    # freshness: the queued decision is the final bar's, not a stale one
+    assert ctl.step()
+    assert acct.positions and any(q != 0 for q in acct.positions.values())
+    assert len(acct.fills) > 5
+    assert ctl.state()["kpis"]["gross_exposure_x"] > 0.5
+
+    # resuming an account with positions must NOT redeploy from scratch
+    ctl2 = LiveController(feed, acct, preset="base")
+    assert ctl2.pending_targets is None
+
+
+def test_decided_is_fresh():
+    """BacktestResult.decided must have a usable value on the final bar."""
+    from ctabot.backtest import run_strategy
+    from ctabot.config import PRESETS
+
+    feed = ReplayFeed(start="2005-01-01", end="2010-12-31")
+    res = run_strategy(feed.data, feed.meta, PRESETS["base"])
+    last = res.decided.dropna(how="all").index[-1]
+    assert last == res.held.index[-1], "decision must exist for the latest bar"
+
+
 def test_dashboard_references_only_existing_fields():
     """Every k.<field> the UI reads must exist in the API payload."""
     import re
