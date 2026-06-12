@@ -354,21 +354,22 @@ python scripts/run_simulator.py --mode live           # real-time paper trading
   off, and quote series jump at contract rolls (disclosed in the UI).
   No real orders are sent anywhere, ever.
 
-### Building the Windows .exe
+### Windows .exe
 
-A Windows binary cannot be cross-compiled from this repo's CI environment,
-so the build is one command on your machine:
+Every push to the branch builds the simulator on a Windows CI runner
+(`.github/workflows/build-exe.yml`: full test suite, then PyInstaller) and
+publishes it to the rolling GitHub release
+[`simulator-latest`](https://github.com/niqhttime9990/claude/releases/tag/simulator-latest):
 
-```bat
-cd tradingbot
-build_exe.bat
-```
+- `ctabot-simulator-win64.zip` — exe + `data/` (for replay mode) + README
+- `ctabot-simulator.exe` — bare binary (live mode only)
 
-This produces `dist\ctabot-simulator.exe` (PyInstaller one-file).
 Double-click → live paper trading with $10M and the dashboard opens in
-your browser. `ctabot-simulator.exe replay` replays history if you copy
-the repo's `data\` folder next to the exe; a second argument overrides
-capital, e.g. `ctabot-simulator.exe live 50000000`.
+your browser. `ctabot-simulator.exe replay` replays history (needs the
+`data\` folder next to the exe); a second argument overrides capital,
+e.g. `ctabot-simulator.exe live 50000000`. The binary is unsigned, so
+Windows SmartScreen warns on first run ("More info" → "Run anyway") —
+or build it yourself locally with `build_exe.bat`.
 
 ## References
 
